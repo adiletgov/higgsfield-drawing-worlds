@@ -181,7 +181,7 @@ export async function checkProviderConnection(
           method: "POST",
           headers: { Authorization: auth, "Content-Type": "application/json" },
           body: JSON.stringify({ content_type: "image/png" }),
-          redirect: "error",
+          redirect: "manual",
           signal,
         });
       } catch (error) {
@@ -190,7 +190,12 @@ export async function checkProviderConnection(
       }
       if (!response.ok) {
         await response.body?.cancel().catch(() => undefined);
-        return result("api-rejected", { httpStatus: response.status });
+        return result(
+          response.status >= 300 && response.status < 400
+            ? "redirect"
+            : "api-rejected",
+          { httpStatus: response.status },
+        );
       }
       let upload: Record<string, unknown>;
       try {
@@ -457,6 +462,10 @@ async function boundedBytes(
 }
 
 function httpError(status: number, billable: boolean): ProviderError {
+  if (status >= 300 && status < 400)
+    return new ProviderError(
+      "The image service returned a redirect that cannot be followed.",
+    );
   if (status === 401)
     return new ProviderError("The owner needs to check Higgsfield API access.");
   if (status === 403)
@@ -496,7 +505,8 @@ async function apiJson(
           ...(body === undefined ? {} : { "Content-Type": "application/json" }),
         },
         body: body === undefined ? undefined : JSON.stringify(body),
-        redirect: "error",
+        // The hosted runtime supports manual redirects; never follow Location.
+        redirect: "manual",
         signal,
       });
     } catch {
@@ -576,7 +586,7 @@ export async function submitGeneration(
         method: "PUT",
         headers,
         body: png as Uint8Array<ArrayBuffer>,
-        redirect: "error",
+        redirect: "manual",
         signal,
       });
       await response.body?.cancel().catch(() => undefined);
@@ -676,7 +686,7 @@ export async function fetchResultImage(url: string): Promise<Uint8Array> {
     try {
       const response = await fetch(target, {
         method: "GET",
-        redirect: "error",
+        redirect: "manual",
         signal,
       });
       if (

@@ -138,7 +138,7 @@ describe("public Higgsfield provider", () => {
     expect(
       requests.map(({ url, init }) => [url, init.method, init.redirect]),
     ).toEqual([
-      [`${api}/files/generate-upload-url`, "POST", "error"],
+      [`${api}/files/generate-upload-url`, "POST", "manual"],
       [`${api}/files/generate-upload-url`, "POST", "manual"],
       ["https://docs.higgsfield.ai/docs/authentication", "GET", "manual"],
     ]);
@@ -190,6 +190,26 @@ describe("public Higgsfield provider", () => {
     expect(JSON.stringify(result)).not.toMatch(
       /https:|fixture-secret|ENOTFOUND|Location/,
     );
+  });
+
+  it("reports an authenticated diagnostic redirect without following it or probing", async () => {
+    const fetch = vi.fn(
+      async () =>
+        new Response(null, {
+          status: 302,
+          headers: { Location: "https://other.example/fixture-secret" },
+        }),
+    );
+    vi.stubGlobal("fetch", fetch);
+    const result = await checkProviderConnection(env);
+    expect(result).toMatchObject({
+      ok: false,
+      classification: "redirect",
+      httpStatus: 302,
+    });
+    expect(result).not.toHaveProperty("probes");
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(JSON.stringify(result)).not.toMatch(/other.example|fixture-secret/);
   });
 
   it("reports upload schema and header validity independently", async () => {
@@ -262,7 +282,67 @@ describe("public Higgsfield provider", () => {
       enable_thinking: true,
       prompt_extend_mode: "direct",
     });
-    expect(requests.every((r) => r.init.redirect === "error")).toBe(true);
+    expect(requests.every((r) => r.init.redirect === "manual")).toBe(true);
+  });
+
+  it.each([302, 307, 308])(
+    "rejects API %i without forwarding credentials or retrying a generation",
+    async (status) => {
+      const requests: { url: string; init: RequestInit }[] = [];
+      vi.stubGlobal("fetch", async (url: string, init: RequestInit) => {
+        requests.push({ url: String(url), init });
+        if (requests.length === 1) return upload();
+        if (requests.length === 2) return new Response(null);
+        return new Response("fixture-secret", {
+          status,
+          headers: { Location: "https://other.example/fixture-secret" },
+        });
+      });
+      const error = await submitGeneration(env, png, "One character.").catch(
+        (e) => e,
+      );
+      expect(error).toBeInstanceOf(ProviderError);
+      expect(error.message).toBe(
+        "The image service returned a redirect that cannot be followed.",
+      );
+      expect(error.retryable).toBe(false);
+      expect(requests.map(({ url }) => url)).toEqual([
+        `${api}/files/generate-upload-url`,
+        "https://storage.higgsfield.ai/upload/fixture?signature=fixture",
+        `${api}/alibaba/qwen-image-3/edit`,
+      ]);
+      expect(requests.every(({ init }) => init.redirect === "manual")).toBe(
+        true,
+      );
+    },
+  );
+
+  it("rejects a redirected upload PUT before generation and never contacts its destination", async () => {
+    const requests: { url: string; init: RequestInit }[] = [];
+    vi.stubGlobal("fetch", async (url: string, init: RequestInit) => {
+      requests.push({ url: String(url), init });
+      if (requests.length === 1) return upload();
+      return new Response(null, {
+        status: 302,
+        headers: { Location: "https://other.example/fixture-secret" },
+      });
+    });
+    await expect(
+      submitGeneration(env, png, "One character."),
+    ).rejects.toBeInstanceOf(ProviderError);
+    expect(
+      requests.map(({ url, init }) => [url, init.method, init.redirect]),
+    ).toEqual([
+      [`${api}/files/generate-upload-url`, "POST", "manual"],
+      [
+        "https://storage.higgsfield.ai/upload/fixture?signature=fixture",
+        "PUT",
+        "manual",
+      ],
+    ]);
+    expect(new Headers(requests[1].init.headers).has("authorization")).toBe(
+      false,
+    );
   });
 
   it.each([undefined, null, {}])(
@@ -476,7 +556,28 @@ describe("public Higgsfield provider", () => {
       fetchResultImage("https://media.higgsfield.ai/a.png?signature=fixture"),
     ).resolves.toEqual(png);
     expect(new Headers(options?.headers).get("authorization")).toBeNull();
-    expect(options?.redirect).toBe("error");
+    expect(options?.redirect).toBe("manual");
+  });
+
+  it("rejects a result redirect without contacting its destination", async () => {
+    const fetch = vi.fn(
+      async () =>
+        new Response(null, {
+          status: 302,
+          headers: { Location: "https://other.example/fixture-secret" },
+        }),
+    );
+    vi.stubGlobal("fetch", fetch);
+    const error = await fetchResultImage(
+      "https://media.higgsfield.ai/image.png",
+    ).catch((e) => e);
+    expect(error).toBeInstanceOf(ProviderError);
+    expect(error.message).not.toContain("fixture-secret");
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(fetch.mock.calls[0]).toEqual([
+      "https://media.higgsfield.ai/image.png",
+      expect.objectContaining({ method: "GET", redirect: "manual" }),
+    ]);
   });
 
   it.each([
