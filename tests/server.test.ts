@@ -73,6 +73,37 @@ afterAll(async () => {
   await mf?.dispose();
 });
 describe("persistent worlds with scoped guests", () => {
+  it("restricts non-billable connection diagnostics to the owner", async () => {
+    const w = await world();
+    const owner = await request("/api/connection-check");
+    expect(owner.status).toBe(200);
+    expect(await owner.json()).toMatchObject({
+      ok: false,
+      classification: "not-configured",
+    });
+    expect(
+      (
+        await request(
+          "/api/connection-check",
+          "GET",
+          undefined,
+          w.guestToken,
+          "https://drawing.example",
+        )
+      ).status,
+    ).toBe(403);
+    expect(
+      (
+        await request(
+          "/api/connection-check",
+          "GET",
+          undefined,
+          undefined,
+          "https://drawing.example",
+        )
+      ).status,
+    ).toBe(403);
+  });
   it("lets only the owner release an uncertain upload after review without restarting generation", async () => {
     const w = await world(),
       db = await mf.getD1Database("DB"),

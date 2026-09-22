@@ -9,6 +9,192 @@ export interface GenerationResult {
   message?: string;
 }
 
+type ConnectionClassification =
+  | "ready"
+  | "not-configured"
+  | "dns"
+  | "tls"
+  | "redirect"
+  | "invalid-header"
+  | "unsupported-option"
+  | "network-denied"
+  | "network"
+  | "timeout"
+  | "api-rejected"
+  | "invalid-response";
+
+export interface ConnectionCheck {
+  ok: boolean;
+  stage: "upload-url";
+  classification: ConnectionClassification;
+  message: string;
+  httpStatus?: number;
+  schemaValid?: boolean;
+  uploadHeadersValid?: boolean;
+}
+
+const connectionMessages: Record<ConnectionClassification, string> = {
+  ready:
+    "The API connection and upload settings work. Image generation was not tested.",
+  "not-configured":
+    "Configure the owner's API key and secret before checking the connection.",
+  dns: "The connection failed during hostname resolution.",
+  tls: "The connection reported a TLS or certificate problem.",
+  redirect:
+    "The request reported a redirect that this adapter does not follow.",
+  "invalid-header":
+    "The runtime rejected a request header value or its character encoding.",
+  "unsupported-option": "The runtime reported an unsupported request option.",
+  "network-denied":
+    "The runtime reported that this external request was not permitted.",
+  network:
+    "The external request failed without a recognized connection category.",
+  timeout: "The API connection check timed out.",
+  "api-rejected":
+    "The API returned an unsuccessful HTTP status. No generation was requested.",
+  "invalid-response":
+    "The API responded, but its upload settings did not pass validation.",
+};
+
+function connectionFailure(error: unknown): ConnectionClassification {
+  // Inspect only to select a finite category. Never return/log the inspected text.
+  const parts: string[] = [];
+  if (error && typeof error === "object") {
+    const record = error as {
+      name?: unknown;
+      message?: unknown;
+      cause?: unknown;
+    };
+    for (const value of [record.name, record.message])
+      if (typeof value === "string") parts.push(value.slice(0, 8192));
+    if (record.cause && typeof record.cause === "object") {
+      const cause = record.cause as { code?: unknown; message?: unknown };
+      for (const value of [cause.code, cause.message])
+        if (typeof value === "string") parts.push(value.slice(0, 8192));
+    }
+  }
+  const text = parts.join(" ");
+  if (
+    /bytestring|iso[- ]?8859|non[- ]?ascii|invalid.{0,30}header|header.{0,50}(?:invalid|encoding|character)|character.{0,30}(?:255|byte)/i.test(
+      text,
+    )
+  )
+    return "invalid-header";
+  if (
+    /(?:unsupported|invalid|not supported).{0,40}(?:redirect|cache)|(?:redirect|cache).{0,40}(?:unsupported|not supported|invalid)/i.test(
+      text,
+    )
+  )
+    return "unsupported-option";
+  if (/redirect/i.test(text)) return "redirect";
+  if (/ENOTFOUND|EAI_AGAIN|getaddrinfo|\bdns\b|name resolution/i.test(text))
+    return "dns";
+  if (/certificate|\btls\b|\bssl\b|ERR_TLS|CERT_/i.test(text)) return "tls";
+  if (
+    /global_fetch_strictly_public|\b1042\b|cross[- ]worker|(?:network|fetch|request|url|access).{0,60}(?:denied|not permitted|not allowed|disallowed|blocked|restricted)/i.test(
+      text,
+    )
+  )
+    return "network-denied";
+  if (/timeout|timed out|took too long|AbortError/i.test(text))
+    return "timeout";
+  return "network";
+}
+
+/** Creates a temporary upload slot only: never uploads bytes or requests generation. */
+export async function checkProviderConnection(
+  env: ProviderEnv,
+): Promise<ConnectionCheck> {
+  const result = (
+    classification: ConnectionClassification,
+    extra: Partial<ConnectionCheck> = {},
+  ): ConnectionCheck => ({
+    ok: classification === "ready",
+    stage: "upload-url",
+    classification,
+    message: connectionMessages[classification],
+    ...extra,
+  });
+  let auth: string;
+  try {
+    auth = authorization(env);
+  } catch {
+    return result("not-configured");
+  }
+  try {
+    return await withDeadline(async (signal) => {
+      let response: Response;
+      try {
+        response = await fetch(`${API}/files/generate-upload-url`, {
+          method: "POST",
+          headers: { Authorization: auth, "Content-Type": "application/json" },
+          body: JSON.stringify({ content_type: "image/png" }),
+          redirect: "error",
+          signal,
+        });
+      } catch (error) {
+        return result(connectionFailure(error));
+      }
+      if (!response.ok) {
+        await response.body?.cancel().catch(() => undefined);
+        return result("api-rejected", { httpStatus: response.status });
+      }
+      let upload: Record<string, unknown>;
+      try {
+        upload = object(
+          JSON.parse(
+            new TextDecoder().decode(
+              await boundedBytes(response, JSON_BYTES, signal),
+            ),
+          ),
+        );
+      } catch {
+        return result("invalid-response", {
+          httpStatus: response.status,
+          schemaValid: false,
+          uploadHeadersValid: false,
+        });
+      }
+      let schemaValid = true,
+        uploadHeadersValid = true;
+      try {
+        mediaUrl(upload.public_url);
+        mediaUrl(upload.upload_url);
+      } catch {
+        schemaValid = false;
+      }
+      try {
+        const supplied =
+          upload.upload_headers == null ? {} : object(upload.upload_headers);
+        const headers = new Headers(
+          Object.keys(supplied).length === 0
+            ? { "Content-Type": "image/png" }
+            : undefined,
+        );
+        for (const [name, value] of Object.entries(supplied)) {
+          if (
+            typeof value !== "string" ||
+            /^(authorization|proxy-authorization|cookie|host)$/i.test(name) ||
+            /[\r\n]/.test(value)
+          )
+            throw new Error();
+          headers.set(name, value);
+        }
+        uploadHeadersValid =
+          headers.get("content-type")?.split(";")[0].trim() === "image/png";
+      } catch {
+        uploadHeadersValid = false;
+      }
+      return result(
+        schemaValid && uploadHeadersValid ? "ready" : "invalid-response",
+        { httpStatus: response.status, schemaValid, uploadHeadersValid },
+      );
+    });
+  } catch (error) {
+    return result(connectionFailure(error));
+  }
+}
+
 /** Safe messages only: never attach a provider body, URL, credentials or cause. */
 export class ProviderError extends Error {
   constructor(
@@ -292,8 +478,14 @@ export async function submitGeneration(
   });
   const publicUrl = mediaUrl(upload.public_url);
   const target = mediaUrl(upload.upload_url);
-  const returnedHeaders = object(upload.upload_headers);
-  const headers = new Headers();
+  // The official SDK falls back to the requested MIME when this optional map is absent/empty.
+  const returnedHeaders =
+    upload.upload_headers == null ? {} : object(upload.upload_headers);
+  const headers = new Headers(
+    Object.keys(returnedHeaders).length === 0
+      ? { "Content-Type": "image/png" }
+      : undefined,
+  );
   for (const [name, value] of Object.entries(returnedHeaders)) {
     if (
       typeof value !== "string" ||

@@ -3,6 +3,7 @@ import {
   fetchResultImage,
   pollGeneration,
   ProviderError,
+  checkProviderConnection,
   submitGeneration,
 } from "../src/server/provider";
 
@@ -48,6 +49,115 @@ afterEach(() => {
 });
 
 describe("public Higgsfield provider", () => {
+  it("checks connection with only one non-billable upload-URL request and returns no URLs or headers", async () => {
+    const requests: { url: string; init: RequestInit }[] = [];
+    vi.stubGlobal("fetch", async (url: string, init: RequestInit) => {
+      requests.push({ url: String(url), init });
+      return upload();
+    });
+    const result = await checkProviderConnection(env);
+    expect(result).toMatchObject({
+      ok: true,
+      classification: "ready",
+      httpStatus: 200,
+      schemaValid: true,
+      uploadHeadersValid: true,
+    });
+    expect(
+      requests.map((request) => [request.url, request.init.method]),
+    ).toEqual([[`${api}/files/generate-upload-url`, "POST"]]);
+    expect(JSON.parse(String(requests[0].init.body))).toEqual({
+      content_type: "image/png",
+    });
+    expect(JSON.stringify(result)).not.toMatch(
+      /https:|fixture-secret|signature|upload_headers|Authorization/,
+    );
+  });
+
+  it.each([
+    ["getaddrinfo ENOTFOUND private-host fixture-secret", "dns"],
+    ["certificate verify failed fixture-secret", "tls"],
+    ["fetch redirect not allowed fixture-secret", "redirect"],
+    ["Invalid header value fixture-secret", "invalid-header"],
+    [
+      "Cannot convert value to ByteString because a character is greater than 255 fixture-secret",
+      "invalid-header",
+    ],
+    [
+      "Header value contains non-ISO-8859-1 characters fixture-secret",
+      "invalid-header",
+    ],
+    ["Unsupported cache mode fixture-secret", "unsupported-option"],
+    ["Unsupported redirect mode fixture-secret", "unsupported-option"],
+    ["Network access denied fixture-secret", "network-denied"],
+    ["URL is not allowed fixture-secret", "network-denied"],
+    ["error code 1042 cross-worker fetch fixture-secret", "network-denied"],
+    [
+      "global_fetch_strictly_public restricted fixture-secret",
+      "network-denied",
+    ],
+    ["unclassified transport problem fixture-secret", "network"],
+  ])(
+    "classifies a connection failure without exposing its raw details %#",
+    async (message, classification) => {
+      vi.stubGlobal("fetch", async () => {
+        throw new Error(message);
+      });
+      const result = await checkProviderConnection(env);
+      expect(result).toMatchObject({ ok: false, classification });
+      expect(JSON.stringify(result)).not.toContain("fixture-secret");
+    },
+  );
+
+  it("reports an API rejection by safe status without exposing the provider body", async () => {
+    vi.stubGlobal("fetch", async () => json({ detail: "fixture-secret" }, 401));
+    const result = await checkProviderConnection(env);
+    expect(result).toMatchObject({
+      ok: false,
+      classification: "api-rejected",
+      httpStatus: 401,
+    });
+    expect(JSON.stringify(result)).not.toContain("fixture-secret");
+  });
+
+  it("reports upload schema and header validity independently", async () => {
+    vi.stubGlobal("fetch", async () =>
+      json({
+        public_url: "https://media.higgsfield.ai/a.png",
+        upload_url: "https://storage.higgsfield.ai/upload",
+        upload_headers: { Authorization: "fixture-secret" },
+      }),
+    );
+    expect(await checkProviderConnection(env)).toMatchObject({
+      ok: false,
+      schemaValid: true,
+      uploadHeadersValid: false,
+    });
+    vi.stubGlobal("fetch", async () =>
+      json({ upload_headers: { "Content-Type": "image/png" } }),
+    );
+    expect(await checkProviderConnection(env)).toMatchObject({
+      ok: false,
+      schemaValid: false,
+      uploadHeadersValid: true,
+    });
+  });
+
+  it("does not contact the provider when connection credentials are missing", async () => {
+    let calls = 0;
+    vi.stubGlobal("fetch", async () => {
+      calls++;
+      return upload();
+    });
+    expect(
+      await checkProviderConnection({
+        HIGGSFIELD_API_KEY: "",
+        HIGGSFIELD_API_SECRET: "",
+      }),
+    ).toMatchObject({ ok: false, classification: "not-configured" });
+    expect(calls).toBe(0);
+  });
+
   it("uploads bytes without credentials and submits one flat Qwen edit request", async () => {
     const requests: { url: string; init: RequestInit }[] = [];
     vi.stubGlobal("fetch", async (url: string, init: RequestInit) => {
@@ -82,6 +192,57 @@ describe("public Higgsfield provider", () => {
     });
     expect(requests.every((r) => r.init.redirect === "error")).toBe(true);
   });
+
+  it.each([undefined, null, {}])(
+    "accepts optional upload headers %j using the requested PNG content type",
+    async (uploadHeaders) => {
+      const requests: RequestInit[] = [];
+      vi.stubGlobal("fetch", async (_url: string, init: RequestInit) => {
+        requests.push(init);
+        if (requests.length === 1)
+          return json({
+            public_url: "https://media.higgsfield.ai/input/fixture.png",
+            upload_url: "https://storage.higgsfield.ai/upload/fixture",
+            ...(uploadHeaders === undefined
+              ? {}
+              : { upload_headers: uploadHeaders }),
+          });
+        if (requests.length === 2) return new Response(null);
+        return accepted();
+      });
+      await expect(
+        submitGeneration(env, png, "One character."),
+      ).resolves.toEqual({ requestId: id });
+      expect(new Headers(requests[1].headers).get("content-type")).toBe(
+        "image/png",
+      );
+      expect(new Headers(requests[1].headers).get("authorization")).toBeNull();
+    },
+  );
+
+  it.each([
+    { "Content-Type": "image/png", Authorization: "unexpected" },
+    { "Content-Type": "text/html" },
+    { "Content-Type": "image/png", "x-amz-tagging": "bad\r\nheader" },
+    { "x-amz-tagging": "present-but-no-content-type" },
+  ])(
+    "rejects supplied invalid headers without applying the optional-header fallback %#",
+    async (uploadHeaders) => {
+      let calls = 0;
+      vi.stubGlobal("fetch", async () => {
+        calls++;
+        return json({
+          public_url: "https://media.higgsfield.ai/input/fixture.png",
+          upload_url: "https://storage.higgsfield.ai/upload/fixture",
+          upload_headers: uploadHeaders,
+        });
+      });
+      await expect(
+        submitGeneration(env, png, "One character."),
+      ).rejects.toBeInstanceOf(ProviderError);
+      expect(calls).toBe(1);
+    },
+  );
 
   it("does not repeat an ambiguous billable submission or expose the transport error", async () => {
     let calls = 0;

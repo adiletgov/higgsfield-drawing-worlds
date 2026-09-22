@@ -2,6 +2,7 @@ import type { Env } from "./env";
 import type { Job, World } from "../shared";
 import { initialize, type WorldRow, type JobRow } from "./database";
 import { advanceJob } from "./jobs";
+import { checkProviderConnection } from "./provider";
 import { validateUpload } from "./images";
 import {
   HttpError,
@@ -101,6 +102,15 @@ async function api(request: Request, env: Env, ctx: ExecutionContext) {
       demo,
       signInUrl: "/signin-with-chatgpt",
     });
+  if (url.pathname === "/api/connection-check" && request.method === "GET") {
+    requireOwner(request, env);
+    return json(
+      await checkProviderConnection({
+        HIGGSFIELD_API_KEY: env.HIGGSFIELD_API_KEY ?? "",
+        HIGGSFIELD_API_SECRET: env.HIGGSFIELD_API_SECRET ?? "",
+      }),
+    );
+  }
   if (!env.DB || !env.MEDIA)
     throw new HttpError(
       503,
