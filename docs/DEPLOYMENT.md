@@ -4,7 +4,7 @@
 
 ChatGPT Sites is the intended managed host. The [official Sites guide](https://learn.chatgpt.com/docs/sites) documents compatible existing projects, D1 and R2 storage, Site settings for runtime secrets, and optional Sign in with ChatGPT. The [public GitHub template](https://github.com/adiletgov/higgsfield-drawing-worlds) has a verified reference deployment, owner sign-in, world creation, and world persistence after redeployment as of September 22, 2026.
 
-The starter remains under validation: live generation has not succeeded, and a separate owner's one-prompt setup and physical phone/TV use remain unverified. Two live submission attempts failed before a generation request ID was obtained; the second failed with a connection error at the initial nonbillable upload-URL request. No real output or charge has been confirmed. See the [validation record](VALIDATION.md) for verified coverage and remaining checks.
+This is a working prototype with a creator pilot pending. Two real Higgsfield generations, one handmade and one polished, appeared together and survived display refresh and invitation replacement. The second was submitted as a guest without a ChatGPT session. Tests used original digital illustrations; a photo of a paper drawing, physical phone/TV use, and a separate owner's one-prompt setup remain unverified. See the [validation record](VALIDATION.md) for measured timings, cost-estimate limits, and remaining checks.
 
 No owner credentials, hosted project identifiers, or private guest/display links belong in this public starter. Create a fresh Site for each person. Preserve and reuse that person's returned project ID for later updates.
 
@@ -74,7 +74,7 @@ Guest and display tokens are link capabilities. Keep them in URL fragments on th
 1. Start with a clean source copy and a different owner's account. Complete setup without editing application code by hand.
 2. Confirm real owner sign-in and denial of all owner mutations to guests and signed-out visitors.
 3. Create a world, open the display on another device, and scan its guest QR code from a phone.
-4. With a bounded paid test authorized, generate from two different drawings. Check handmade and polished output and all three themes.
+4. With a bounded paid test authorized, generate from photos of two different paper drawings. Check handmade and polished output and all three themes.
 5. Refresh and reopen the world; confirm persistence. Submit concurrent/retried requests and confirm they do not duplicate a paid job.
 6. Confirm pause uploads, guest-link replacement, character removal, and failure handling preserve the intended world.
 7. Inspect browser responses and built assets for accidental secrets. Confirm local bypass and simulated output are disabled on the hosted origin.

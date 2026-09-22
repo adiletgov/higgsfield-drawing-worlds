@@ -2,7 +2,7 @@
 
 Attach a source ZIP of this repository to a ChatGPT task with Sites available, or provide the actual accessible repository link. Copy the prompt below. Do not include API keys or secrets in the message or attachment.
 
-The full Sites import and setup flow remains untested until a separate owner completes it. This prompt asks ChatGPT to verify the host's current requirements rather than assume compatibility.
+The reference prototype has completed two real Higgsfield generations. A separate owner's full setup, photos of paper drawings, and physical phone/TV use still need a pilot test. This prompt asks ChatGPT to verify setup and your own app; it does not promise a proven one-prompt installation. See the [validation record](VALIDATION.md).
 
 ---
 

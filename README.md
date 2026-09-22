@@ -21,7 +21,7 @@ Start with the [copyable ChatGPT setup prompt](docs/SETUP-PROMPT.md). Attach a d
 
 The intended host is ChatGPT Sites. You will need a Sites-enabled ChatGPT account, a Higgsfield API account, and API credentials entered in your own Site's private settings. See [deployment details](docs/DEPLOYMENT.md).
 
-**Release status:** under validation. This [public GitHub template](https://github.com/adiletgov/higgsfield-drawing-worlds) has a verified Sites deployment, owner sign-in, and saved worlds. Live generation is still blocked by a connection error at the initial upload-URL request. A separate owner's one-prompt setup and physical phone/TV use remain unverified. See the [validation record](docs/VALIDATION.md) before using it for a live demonstration.
+**Release status:** working prototype; creator pilot pending. This [public GitHub template](https://github.com/adiletgov/higgsfield-drawing-worlds) has a verified Sites deployment and two successful Higgsfield generations, one handmade and one polished, appearing together in a saved world. Tests used original digital illustrations. A separate owner's one-prompt setup, a photo of a paper drawing, and physical phone/TV use remain unverified. See the [validation record](docs/VALIDATION.md) before filming.
 
 ## Use the world
 

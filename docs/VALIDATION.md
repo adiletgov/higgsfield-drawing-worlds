@@ -1,18 +1,30 @@
 # Validation record
 
-Status on September 22, 2026: **under validation; live generation is unresolved**.
+Status on September 22, 2026: **working prototype; creator pilot pending**.
 
 ## Verified
 
 - The [public GitHub repository](https://github.com/adiletgov/higgsfield-drawing-worlds) exists with template creation enabled.
 - Sites accepted and deployed the app. Owner sign-in, world creation, and world persistence after redeployment worked.
 - On the public deployment, signed-out requests and requests with a spoofed email header received `403` from the owner world-list endpoint. A guest invitation without a ChatGPT session read its world successfully (`200`) but could neither list owner worlds nor edit the world (`403`).
+- Two real Higgsfield outputs, handmade Captain Bubbles and polished Little Comet, were visually checked. The second was submitted using a guest invitation without a ChatGPT session. Both automatically appeared together and survived display refresh and invitation replacement.
+- Paused guest submissions received `403`. Repeating a completed submission with its original request ID returned the same job (`200`) without another generation. The old invitation received `403` after replacement.
+- Switching the live world through aquarium, dinosaur valley, and outer space retained both generated characters and updated the separate display automatically.
 - In local demo mode, a second character automatically joined the first. Switching through all three themes retained both characters; refreshing preserved the world. Demo output does not verify Higgsfield generation.
 - A browser preview at 390px had equal client and scroll widths of 390px, with no horizontal overflow. This was an iframe preview, not a physical phone test.
 - 92 Vitest tests and 4 client-logic checks passed. The production dependency audit reported zero known vulnerabilities at the time checked.
 
-## Live generation and remaining checks
+## Live generation
 
-Two live submission attempts failed before a generation request ID was obtained. The second reported a fetch connection error at the initial nonbillable upload-URL request. The owner-only connection check identified an unsupported request option in this hosting runtime. Credential-free requests using manual redirect handling reached the API (`401`) and documentation (`200`). A compatibility fix is being verified; no real generated output or charge has been confirmed.
+| Test            | Appearance | Job creation to completion |
+| --------------- | ---------- | -------------------------- |
+| Captain Bubbles | Handmade   | 39.768 seconds             |
+| Little Comet    | Polished   | 43.956 seconds             |
 
-A successful real generation flow, a separate fresh owner's one-prompt setup, and physical phone/TV use remain unverified. Do not describe this release as ready or its setup as proven until those checks pass. The broader [release acceptance checklist](DEPLOYMENT.md#acceptance-checks-for-a-release) also applies.
+These are two observed application job timings, not an instant-generation or future processing-time guarantee. Inputs were original digital illustrations, not photos of drawings on paper.
+
+There were four upload attempts: two failed at the initial nonbillable upload-URL request before a generation request ID was obtained, followed by two successful generations after the runtime request-option fix. The estimated cost of the two generations is $0.08; the actual billing ledger has not been checked.
+
+## Remaining pilot checks
+
+A separate fresh owner's one-prompt setup, an actual photo of a paper drawing, and physical phone/TV use remain unverified. Do not describe the creator setup as proven until those checks pass. The broader [release acceptance checklist](DEPLOYMENT.md#acceptance-checks-for-a-release) also applies.
