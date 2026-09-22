@@ -1,0 +1,20 @@
+{
+  "profile": "product-admin",
+  "sourceRoots": ["src/client"],
+  "locale": "en",
+  "canonicalMap": "UX-CONTRACT.md",
+  "requiredCapabilities": ["Form", "Scrollbar", "Toast", "CRUD"],
+  "ownership": {},
+  "requiredCommands": ["typecheck", "unit", "client", "build", "format"],
+  "commands": {
+    "typecheck": "npm run typecheck",
+    "unit": "npm test",
+    "client": "node --test src/client/logic.check.mjs",
+    "build": "npm run build",
+    "format": "npm run format:check"
+  },
+  "evidence": {
+    "crudFullFlow": "tests/server.test.ts",
+    "failurePaths": "tests/server.test.ts"
+  }
+}

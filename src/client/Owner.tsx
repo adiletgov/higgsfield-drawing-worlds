@@ -1,0 +1,632 @@
+import { useState, useRef, type FormEvent } from "react";
+import type { Session, Snapshot, World, Theme, Character } from "../shared";
+import { api, usePageTitle, useResource, useUnsaved } from "./api";
+import { accessLink } from "./logic";
+import {
+  Brand,
+  Button,
+  CopyButton,
+  Dialog,
+  Icon,
+  Loading,
+  Notice,
+  QR,
+  ThemePicker,
+  themes,
+} from "./ui";
+import { CharacterImage, WorldStage } from "./WorldStage";
+
+type Modal = "create" | "edit" | "rotate" | Character | null;
+export function Owner({ session }: { session: Session }) {
+  const list = useResource<{ worlds: World[] }>("/api/worlds");
+  const [selected, setSelected] = useState("");
+  const world =
+    list.data?.worlds.find((w) => w.id === selected) || list.data?.worlds[0];
+  const snapshot = useResource<Snapshot>(
+    world ? `/api/worlds/${world.id}` : null,
+    undefined,
+    3500,
+  );
+  const [modal, setModal] = useState<Modal>(null);
+  const [notice, setNotice] = useState("");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [paused, setPaused] = useState(false);
+  usePageTitle(world ? `${world.name} · Studio` : "Your studio");
+  const current = snapshot.data?.world || world;
+  const join = current?.guestToken
+    ? accessLink(location.origin, "join", current.id, current.guestToken)
+    : "";
+  const display = current?.displayToken
+    ? accessLink(location.origin, "world", current.id, current.displayToken)
+    : "";
+  async function patch(values: Partial<World> & { rotateGuest?: true }) {
+    if (!current || busy) return;
+    setBusy(true);
+    setError("");
+    try {
+      const updated = await api<World>(`/api/worlds/${current.id}`, {
+        method: "PATCH",
+        body: JSON.stringify(values),
+      });
+      list.setData((old) =>
+        old
+          ? {
+              worlds: old.worlds.map((w) =>
+                w.id === updated.id ? updated : w,
+              ),
+            }
+          : old,
+      );
+      snapshot.setData((old) => (old ? { ...old, world: updated } : old));
+      setNotice(
+        values.rotateGuest
+          ? "A new invitation is ready. The previous upload link no longer works."
+          : values.uploadsOpen === false
+            ? "Uploads paused. Everyone already here stays."
+            : values.uploadsOpen === true
+              ? "Uploads are open."
+              : "Changes saved.",
+      );
+      setModal(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Changes could not be saved.");
+      if (values.name !== undefined || values.theme !== undefined) throw e;
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function remove(character: Character) {
+    if (!current || busy) return;
+    setBusy(true);
+    setError("");
+    try {
+      await api(`/api/worlds/${current.id}/characters/${character.id}`, {
+        method: "DELETE",
+      });
+      snapshot.setData((old) =>
+        old
+          ? {
+              ...old,
+              characters: old.characters.filter((c) => c.id !== character.id),
+            }
+          : old,
+      );
+      setModal(null);
+      setNotice(`${character.name} removed from this world.`);
+    } catch (e) {
+      setError(
+        e instanceof Error ? e.message : "The character could not be removed.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <div className="studio">
+      <header className="app-header">
+        <Brand />
+        <nav aria-label="Studio navigation">
+          <span className="studio-label">Your creative playground</span>
+          <span className="owner-badge">
+            <span className="owner-dot" />
+            Host studio
+          </span>
+        </nav>
+      </header>
+      {session.demo && (
+        <div className="preview-strip">
+          <span className="preview-label">PREVIEW</span>Local sample processing
+          is on. Live Higgsfield AI is not connected.
+        </div>
+      )}
+      {!session.generationReady && !session.demo && (
+        <Notice>
+          Worlds are ready. The host still needs to connect Higgsfield
+          generation before drawings can come alive.
+        </Notice>
+      )}
+      <main className="studio-main">
+        <div className="heading-row">
+          <div>
+            <div className="eyebrow">PAPER TO POSSIBILITY</div>
+            <h1>
+              Small drawings.
+              <br className="mobile-break" /> <span>Big worlds.</span>
+              <svg
+                className="heading-star"
+                viewBox="0 0 46 50"
+                aria-hidden="true"
+              >
+                <path
+                  d="m21 2 4 14 15-8-10 16 14 7-18 2-3 16-6-16L2 37l9-12L3 14l15 6z"
+                  fill="#f6d875"
+                  stroke="#163f49"
+                  strokeWidth="2"
+                />
+              </svg>
+            </h1>
+            <p className="intro">
+              Turn a drawing into a character. Give it somewhere to belong.
+            </p>
+          </div>
+          <Button
+            intent="primary"
+            onClick={() => {
+              setError("");
+              setModal("create");
+            }}
+          >
+            <Icon name="plus" />
+            Create a world
+          </Button>
+        </div>
+        <div className="workspace">
+          <section className="world-main" aria-label="World preview">
+            <div className="world-toolbar">
+              <div className="world-identity">
+                <span className="world-icon">
+                  <Icon name="fish" />
+                </span>
+                <div>
+                  <h2>{current?.name || "Your first little world"}</h2>
+                  <span className="world-subtitle">
+                    {current
+                      ? themes[current.theme].name
+                      : "Choose a world. Invite your imagination."}
+                  </span>
+                </div>
+              </div>
+              <div className="toolbar-actions">
+                {current && (
+                  <Button
+                    intent="ghost"
+                    aria-label="Edit world"
+                    onClick={() => {
+                      setError("");
+                      setModal("edit");
+                    }}
+                  >
+                    <Icon name="settings" />
+                  </Button>
+                )}
+                <Button
+                  intent="ghost"
+                  aria-pressed={paused}
+                  aria-label={paused ? "Play animation" : "Pause animation"}
+                  onClick={() => setPaused((p) => !p)}
+                >
+                  <Icon name={paused ? "play" : "pause"} />
+                </Button>
+                {display && (
+                  <a
+                    className="button button-neutral display-open"
+                    href={display}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    <Icon name="expand" />
+                    <span>Open display</span>
+                  </a>
+                )}
+              </div>
+            </div>
+            {snapshot.loading && current && !snapshot.data ? (
+              <Loading />
+            ) : (
+              <WorldStage
+                snapshot={snapshot.data}
+                theme={current?.theme}
+                preview={!current}
+                paused={paused}
+              />
+            )}
+            <div className="stage-footer">
+              <span
+                className={`live-label ${current && !current.uploadsOpen ? "is-paused" : ""}`}
+              >
+                <i />
+                {current
+                  ? current.uploadsOpen
+                    ? "Ready for new drawings"
+                    : "Uploads paused"
+                  : "An empty world. Endless possibilities."}
+              </span>
+              <span className="made-with">
+                Made with <strong>Higgsfield API</strong>
+                <span className="tiny-spark">✳</span>
+              </span>
+            </div>
+            {snapshot.error && (
+              <Notice error>
+                {snapshot.error}{" "}
+                <Button onClick={snapshot.refresh}>Try again</Button>
+              </Notice>
+            )}
+          </section>
+          <aside className="join-panel">
+            <span className="paper-pin" />
+            <span className="eyebrow">A LITTLE DRAWING. A BIG ENTRANCE.</span>
+            <h2>
+              Draw it.
+              <br />
+              Bring it to life.
+            </h2>
+            <div className="join-doodle">
+              <Icon name="pencil" size={32} />
+              <span className="dashed-arrow">⤳</span>
+              <Icon name="spark" size={31} />
+            </div>
+            <p>
+              A fish with wings? A friendly dinosaur? There’s room for every
+              imagination.
+            </p>
+            {join ? (
+              <>
+                <div className="invite-qr">
+                  <QR value={join} />
+                  <span>Scan. Snap. See it come alive.</span>
+                </div>
+                <a
+                  className="button button-primary"
+                  href={join}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  <Icon name="upload" />
+                  Add a drawing
+                  <Icon name="arrow" />
+                </a>
+                <CopyButton value={join} />
+                <p className="helper-note">
+                  Anyone with the invitation can add a drawing while uploads are
+                  open.
+                </p>
+              </>
+            ) : (
+              <>
+                <div className="empty-invitation">
+                  <span className="sketch-arrow">↙</span>
+                  <span>
+                    A home for your
+                    <br />
+                    one-of-a-kind creatures
+                  </span>
+                </div>
+                <Button intent="primary" onClick={() => setModal("create")}>
+                  Create your first world
+                  <Icon name="arrow" />
+                </Button>
+              </>
+            )}
+          </aside>
+        </div>
+        {notice && <Notice>{notice}</Notice>}
+        {error && !modal && <Notice error>{error}</Notice>}
+        <div className="below-stage">
+          <section className="world-shelf" aria-labelledby="worlds-heading">
+            <div className="section-heading">
+              <h2 id="worlds-heading">Your worlds</h2>
+              <span>Little places with a life of their own</span>
+            </div>
+            {list.loading ? (
+              <Loading label="Finding your worlds…" />
+            ) : list.error ? (
+              <Notice error>
+                {list.error}
+                <Button onClick={list.refresh}>Try again</Button>
+              </Notice>
+            ) : list.data?.worlds.length ? (
+              <div className="world-list">
+                {list.data.worlds.map((w) => (
+                  <button
+                    key={w.id}
+                    className={`world-tab ${current?.id === w.id ? "selected" : ""}`}
+                    onClick={() => {
+                      setSelected(w.id);
+                      setNotice("");
+                      setError("");
+                    }}
+                    aria-pressed={current?.id === w.id}
+                  >
+                    <img src={`/${w.theme}.svg`} alt="" />
+                    <span>
+                      <strong>{w.name}</strong>
+                      <small>{themes[w.theme].name}</small>
+                    </span>
+                    {current?.id === w.id ? (
+                      <span className="world-selected">
+                        <Icon name="check" size={14} />
+                      </span>
+                    ) : (
+                      <Icon name="arrow" size={16} />
+                    )}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className="empty-list">
+                Your worlds will live here. Start with an ocean, a valley, or a
+                whole universe.
+              </p>
+            )}
+          </section>
+          <div className="how-it-works">
+            <span className="eyebrow">FROM YOUR HANDS TO THEIR WORLD</span>
+            <ol>
+              <li>
+                <span>1</span>Draw something wonderful.
+              </li>
+              <li>
+                <span>2</span>Snap a photo. Choose its style.
+              </li>
+              <li>
+                <span>3</span>Watch it join the others.
+              </li>
+            </ol>
+          </div>
+        </div>
+        {current && (
+          <section className="residents">
+            <div className="section-heading">
+              <h2>Little residents</h2>
+              <span>Every new arrival joins the world.</span>
+            </div>
+            {snapshot.data?.characters.length ? (
+              <ul className="resident-list">
+                {snapshot.data.characters.map((c) => (
+                  <li key={c.id}>
+                    <div className="resident-avatar">
+                      <CharacterImage character={c} worldId={current.id} />
+                    </div>
+                    <span>
+                      <strong>{c.name}</strong>
+                      <small>
+                        {c.appearance === "handmade"
+                          ? "Original drawing style"
+                          : "Polished character"}
+                      </small>
+                    </span>
+                    <Button
+                      intent="ghost"
+                      aria-label={`Remove ${c.name}`}
+                      onClick={() => {
+                        setError("");
+                        setModal(c);
+                      }}
+                    >
+                      <Icon name="trash" size={18} />
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="empty-list">
+                The first drawing gets to choose the best spot.
+              </p>
+            )}
+            {snapshot.data?.jobs
+              .filter((j) => j.status !== "completed")
+              .map((j) => (
+                <div className="job-row" key={j.id}>
+                  <span>{j.name}</span>
+                  <span>
+                    {j.status === "uncertain"
+                      ? "Needs host review"
+                      : j.status === "failed"
+                        ? "Could not create character"
+                        : j.status === "queued"
+                          ? "Waiting to come alive"
+                          : "Coming to life…"}
+                  </span>
+                </div>
+              ))}
+            <div className="world-controls">
+              <Button
+                busy={busy}
+                onClick={() =>
+                  void patch({ uploadsOpen: !current.uploadsOpen })
+                }
+              >
+                <Icon name={current.uploadsOpen ? "pause" : "play"} />
+                {current.uploadsOpen ? "Pause uploads" : "Open uploads"}
+              </Button>
+              <Button
+                intent="ghost"
+                onClick={() => {
+                  setError("");
+                  setModal("rotate");
+                }}
+              >
+                Replace invitation link
+              </Button>
+              <p>
+                Existing residents stay when you pause uploads or change the
+                world.
+              </p>
+            </div>
+          </section>
+        )}
+      </main>
+      <footer className="site-footer">
+        <span>A little imagination goes a long way.</span>
+        <span>Drawing Worlds · Powered by Higgsfield API</span>
+      </footer>
+      {(modal === "create" || modal === "edit") && (
+        <WorldForm
+          world={modal === "edit" ? current : undefined}
+          onClose={() => setModal(null)}
+          onSave={async (name, theme) => {
+            if (modal === "edit") {
+              await patch({ name, theme });
+              return;
+            }
+            const created = await api<World>("/api/worlds", {
+              method: "POST",
+              body: JSON.stringify({ name, theme }),
+            });
+            list.setData((old) => ({
+              worlds: [...(old?.worlds || []), created],
+            }));
+            setSelected(created.id);
+            setModal(null);
+            setNotice(`${created.name} is ready for its first drawing.`);
+          }}
+        />
+      )}
+      {modal === "rotate" && (
+        <Dialog
+          title="Replace this invitation?"
+          description="The previous QR code and upload link will stop working. Existing characters stay, and your display link stays the same."
+          onClose={() => setModal(null)}
+          busy={busy}
+        >
+          {error && <Notice error>{error}</Notice>}
+          <div className="dialog-actions">
+            <Button data-cancel onClick={() => setModal(null)} disabled={busy}>
+              Keep current link
+            </Button>
+            <Button
+              intent="danger"
+              busy={busy}
+              onClick={() => void patch({ rotateGuest: true })}
+            >
+              Replace invitation
+            </Button>
+          </div>
+        </Dialog>
+      )}
+      {modal && typeof modal === "object" && (
+        <Dialog
+          title={`Remove ${modal.name}?`}
+          description="This character will leave this world permanently. The other characters will stay. This cannot be undone."
+          onClose={() => setModal(null)}
+          busy={busy}
+        >
+          {error && <Notice error>{error}</Notice>}
+          <div className="dialog-actions">
+            <Button data-cancel onClick={() => setModal(null)} disabled={busy}>
+              Keep character
+            </Button>
+            <Button
+              intent="danger"
+              busy={busy}
+              onClick={() => void remove(modal)}
+            >
+              Remove character
+            </Button>
+          </div>
+        </Dialog>
+      )}
+    </div>
+  );
+}
+function WorldForm({
+  world,
+  onClose,
+  onSave,
+}: {
+  world?: World;
+  onClose: () => void;
+  onSave: (name: string, theme: Theme) => Promise<void>;
+}) {
+  const [name, setName] = useState(world?.name || "");
+  const [theme, setTheme] = useState<Theme>(world?.theme || "aquarium");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [invalid, setInvalid] = useState(false);
+  const [discard, setDiscard] = useState(false);
+  const nameRef = useRef<HTMLInputElement>(null);
+  const dirty =
+    name !== (world?.name || "") || theme !== (world?.theme || "aquarium");
+  useUnsaved(dirty && !busy);
+  async function save(event: FormEvent) {
+    event.preventDefault();
+    if (busy) return;
+    if (!name.trim()) {
+      setInvalid(true);
+      nameRef.current?.focus();
+      return;
+    }
+    setBusy(true);
+    setError("");
+    try {
+      await onSave(name.trim(), theme);
+    } catch (e) {
+      setError(
+        e instanceof Error
+          ? e.message
+          : "Could not save this world. Your changes are still here.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <Dialog
+      title={
+        discard
+          ? "Leave these changes?"
+          : world
+            ? "Make it your world"
+            : "A new world is waiting"
+      }
+      onClose={() => (dirty ? setDiscard(true) : onClose())}
+      busy={busy}
+    >
+      {discard ? (
+        <>
+          <p>Your changes haven’t been saved.</p>
+          <div className="dialog-actions">
+            <Button data-cancel onClick={() => setDiscard(false)}>
+              Keep editing
+            </Button>
+            <Button intent="danger" onClick={onClose}>
+              Discard changes
+            </Button>
+          </div>
+        </>
+      ) : (
+        <form noValidate onSubmit={save}>
+          <label className="field-label" htmlFor="world-name">
+            World name
+          </label>
+          <input
+            ref={nameRef}
+            id="world-name"
+            autoComplete="off"
+            maxLength={80}
+            value={name}
+            onChange={(e) => {
+              setName(e.target.value);
+              setInvalid(false);
+            }}
+            placeholder="e.g. The wonderfully weird ocean"
+            aria-invalid={invalid}
+            aria-describedby={invalid ? "world-name-error" : undefined}
+          />
+          {invalid && (
+            <span id="world-name-error" className="field-error">
+              Give your world a name.
+            </span>
+          )}
+          <ThemePicker value={theme} onChange={setTheme} />
+          {error && <Notice error>{error}</Notice>}
+          <div className="dialog-actions">
+            <Button
+              type="button"
+              onClick={() => (dirty ? setDiscard(true) : onClose())}
+              disabled={busy}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" intent="primary" busy={busy}>
+              {world ? "Save changes" : "Create world"}
+              <Icon name="arrow" />
+            </Button>
+          </div>
+        </form>
+      )}
+    </Dialog>
+  );
+}

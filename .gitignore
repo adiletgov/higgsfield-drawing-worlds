@@ -1,0 +1,13 @@
+node_modules/
+dist/
+.wrangler/
+.dev.vars
+.env*
+!.env.example
+.openai/hosting.json
+*.log
+.DS_Store
+coverage/
+docs/superpowers/
+docs/server-review.md
+premium-audit.json

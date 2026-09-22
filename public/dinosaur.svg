@@ -1,0 +1,94 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 920">
+  <defs>
+    <linearGradient id="sky" x2="0" y2="1">
+      <stop stop-color="#a5e7d8" />
+      <stop offset="1" stop-color="#eef0b5" />
+    </linearGradient>
+    <g id="fern" fill="#287b62">
+      <path
+        d="M0 0Q-10-127 70-166Q49-117 16-92Q82-129 105-104Q61-55 15-63Q66-73 70-41Q22-18 0 0"
+      />
+      <path
+        d="M3 0Q1-122-71-143Q-57-99-22-74Q-72-119-96-77Q-58-44-13-45Q-66-62-59-19Q-24-5 3 0"
+      />
+    </g>
+  </defs>
+  <rect width="1600" height="920" fill="url(#sky)" />
+  <circle cx="1200" cy="198" r="94" fill="#fff5b3" />
+  <g fill="#edfff0" opacity=".7">
+    <path d="M147 179q-1-34 38-31 14-49 57-28 37-28 57 25 41-4 42 34z" />
+    <path d="M859 108q-1-29 30-25 15-32 52-16 24-21 36 21 26 0 27 20z" />
+  </g>
+  <path
+    d="M0 580 238 273 460 612 760 270l224 335 335-365 281 326V920H0"
+    fill="#6fb99d"
+  />
+  <path
+    d="m150 389 88-116 75 115-59-17-22 16-25-22zM644 390l116-120 80 119-38-7-34 20-23-34-37 20z"
+    fill="#b6d8af"
+  />
+  <path
+    d="M0 612q249-75 476 8 208-195 441-64 344-102 683-4v368H0"
+    fill="#5b9e79"
+  />
+  <path
+    d="M0 716q242-123 593 0 270-150 570-59 184-10 437 5v258H0"
+    fill="#94bd74"
+  />
+  <path d="M0 816q290-49 647-5t953-47v156H0" fill="#cfcc8b" />
+  <path d="M0 891q561-109 1021-11t579-52v92H0" fill="#e4d49a" />
+  <g fill="#376e5b">
+    <path d="M67 0h59q-12 86-1 207l-9 384-54 157-47-35 45-319z" />
+    <path d="m104 270 129-97 103-58 12 22-121 85-128 135z" />
+    <path d="M1518 0h51l-22 596 53 160-60 38-44-187z" />
+  </g>
+  <g fill="#39866c">
+    <ellipse cx="140" cy="14" rx="217" ry="96" />
+    <ellipse cx="307" cy="22" rx="129" ry="81" />
+    <ellipse cx="14" cy="163" rx="108" ry="92" />
+    <ellipse cx="1575" cy="146" rx="108" ry="126" />
+    <ellipse cx="1460" cy="3" rx="180" ry="99" />
+  </g>
+  <g fill="#509876">
+    <ellipse cx="86" cy="12" rx="164" ry="56" />
+    <ellipse cx="1530" cy="11" rx="144" ry="48" />
+  </g>
+  <use href="#fern" transform="translate(126 850) scale(1.4)" />
+  <use href="#fern" transform="translate(1440 878) scale(1.8)" />
+  <use href="#fern" transform="translate(311 808) scale(.8)" />
+  <g fill="#869078">
+    <path d="M1074 826q-21-87 24-108 64-23 99 88l-4 28z" />
+    <path d="M252 881q-9-52 43-65 50 5 61 64z" />
+  </g>
+  <g fill="#f4eaba" stroke="#c5b775" stroke-width="2">
+    <ellipse
+      cx="1230"
+      cy="845"
+      rx="24"
+      ry="32"
+      transform="rotate(-16 1230 845)"
+    />
+    <ellipse
+      cx="1273"
+      cy="850"
+      rx="22"
+      ry="29"
+      transform="rotate(14 1273 850)"
+    />
+  </g>
+  <g fill="#f9dc6e">
+    <circle cx="394" cy="837" r="8" />
+    <circle cx="372" cy="847" r="6" />
+    <circle cx="1368" cy="801" r="7" />
+  </g>
+  <g stroke="#699667" stroke-width="4" fill="none">
+    <path d="m492 862 10-28 12 28m426-52 10-28 12 28m439 71 10-28 12 28" />
+  </g>
+  <path
+    d="m750 204 20-6 20 9m-75 22 16-4 13 6"
+    stroke="#599482"
+    stroke-width="3"
+    fill="none"
+    stroke-linecap="round"
+  />
+</svg>
