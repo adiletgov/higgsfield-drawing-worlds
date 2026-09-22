@@ -45,6 +45,9 @@ export function initialize(db: D1Database) {
         db.prepare(
           "CREATE TABLE IF NOT EXISTS party_entries (job_id TEXT PRIMARY KEY, world_id TEXT NOT NULL REFERENCES worlds(id), round INTEGER, revealed INTEGER NOT NULL DEFAULT 0, advanced INTEGER NOT NULL DEFAULT 0, UNIQUE(world_id, round))",
         ),
+        db.prepare(
+          "CREATE TABLE IF NOT EXISTS animation_jobs (job_id TEXT PRIMARY KEY REFERENCES jobs(id), world_id TEXT NOT NULL REFERENCES worlds(id), phase TEXT NOT NULL, poster_key TEXT, image_provider_id TEXT, video_provider_id TEXT)",
+        ),
       ]);
     })().catch((e) => {
       initialized.delete(db);

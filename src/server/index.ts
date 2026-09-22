@@ -17,10 +17,13 @@ import {
   token,
 } from "./security";
 const themes = ["aquarium", "dinosaur", "space", "party"];
-const appearances = ["handmade", "polished"];
-type VisibleJobRow = JobRow & { party_revealed: number | null };
+const appearances = ["handmade", "polished", "animated"];
+type VisibleJobRow = JobRow & {
+  party_revealed: number | null;
+  phase: Job["phase"] | null;
+};
 const jobSelection =
-  "SELECT j.*, p.revealed AS party_revealed FROM jobs j LEFT JOIN party_entries p ON p.job_id=j.id AND p.world_id=j.world_id";
+  "SELECT j.*, p.revealed AS party_revealed,a.phase FROM jobs j LEFT JOIN party_entries p ON p.job_id=j.id AND p.world_id=j.world_id LEFT JOIN animation_jobs a ON a.job_id=j.id AND a.world_id=j.world_id";
 function json(value: unknown, status = 200) {
   return Response.json(value, {
     status,
@@ -38,11 +41,16 @@ function worldView(w: WorldRow, owner = false): World {
     ...(owner ? { displayToken: w.display_token } : {}),
   };
 }
-function jobView(j: JobRow, hidden = false): Job {
+function jobView(
+  j: JobRow & { phase?: Job["phase"] | null },
+  hidden = false,
+): Job {
   return {
     id: j.id,
     name: hidden ? "Mystery guest" : j.name,
     status: j.status as Job["status"],
+    appearance: j.appearance as Job["appearance"],
+    phase: j.phase ?? undefined,
     message: j.message ?? undefined,
     createdAt: j.created_at,
   };
@@ -241,7 +249,7 @@ async function api(request: Request, env: Env, ctx: ExecutionContext) {
       ).then(() => {}),
     );
     const characters = await env.DB.prepare(
-      "SELECT c.id,c.name,c.appearance,c.created_at,p.revealed AS party_revealed FROM characters c LEFT JOIN party_entries p ON p.job_id=c.id AND p.world_id=c.world_id WHERE c.world_id=? ORDER BY c.created_at,c.id",
+      "SELECT c.id,c.name,c.appearance,c.created_at,p.revealed AS party_revealed,a.poster_key FROM characters c LEFT JOIN party_entries p ON p.job_id=c.id AND p.world_id=c.world_id LEFT JOIN animation_jobs a ON a.job_id=c.id AND a.world_id=c.world_id WHERE c.world_id=? ORDER BY c.created_at,c.id",
     )
       .bind(world.id)
       .all<{
@@ -250,6 +258,7 @@ async function api(request: Request, env: Env, ctx: ExecutionContext) {
         appearance: string;
         created_at: string;
         party_revealed: number | null;
+        poster_key: string | null;
       }>();
     const jobs = await env.DB.prepare(
       `${jobSelection} WHERE j.world_id=? AND j.status != 'completed' ORDER BY j.created_at DESC`,
@@ -264,6 +273,10 @@ async function api(request: Request, env: Env, ctx: ExecutionContext) {
         appearance: c.appearance,
         createdAt: c.created_at,
         assetUrl: `/api/worlds/${world.id}/assets/${c.id}`,
+        mediaType: c.appearance === "animated" ? "video" : "image",
+        ...(c.appearance === "animated" && c.poster_key
+          ? { posterUrl: `/api/worlds/${world.id}/posters/${c.id}` }
+          : {}),
       })),
       jobs: jobs.results.map(viewJob),
       ...(world.theme === "party"
@@ -356,8 +369,14 @@ async function api(request: Request, env: Env, ctx: ExecutionContext) {
           503,
           "The owner needs to connect Higgsfield API before drawings can come alive.",
         );
-      if (!appearances.includes(String(data.appearance)))
-        throw new HttpError(400, "Choose handmade or polished.");
+      const appearance = data.appearance;
+      if (typeof appearance !== "string" || !appearances.includes(appearance))
+        throw new HttpError(400, "Choose a drawing style.");
+      if (appearance === "animated" && world.theme !== "party")
+        throw new HttpError(
+          400,
+          "Animated cartoons are available in party worlds.",
+        );
       if (world.theme === "party" && typeof data.name !== "string")
         throw new HttpError(
           400,
@@ -381,7 +400,7 @@ async function api(request: Request, env: Env, ctx: ExecutionContext) {
             world.id,
             data.requestId,
             characterName,
-            String(data.appearance),
+            appearance,
             key,
             now,
             now,
@@ -389,6 +408,9 @@ async function api(request: Request, env: Env, ctx: ExecutionContext) {
           env.DB.prepare(
             "INSERT OR IGNORE INTO party_entries(job_id,world_id) SELECT id,world_id FROM jobs WHERE world_id=? AND request_key=? AND (?='party' OR EXISTS(SELECT 1 FROM worlds WHERE id=? AND theme='party'))",
           ).bind(world.id, data.requestId, world.theme, world.id),
+          env.DB.prepare(
+            "INSERT OR IGNORE INTO animation_jobs(job_id,world_id,phase) SELECT id,world_id,'illustrating' FROM jobs WHERE world_id=? AND request_key=? AND appearance='animated'",
+          ).bind(world.id, data.requestId),
         ]);
         insert = inserted[0];
       } catch (error) {
@@ -417,30 +439,43 @@ async function api(request: Request, env: Env, ctx: ExecutionContext) {
   ) {
     requireOwner(request, env);
     const row = await env.DB.prepare(
-      "SELECT asset_key FROM characters WHERE id=? AND world_id=?",
+      "SELECT c.asset_key,a.poster_key FROM characters c LEFT JOIN animation_jobs a ON a.job_id=c.id AND a.world_id=c.world_id WHERE c.id=? AND c.world_id=?",
     )
       .bind(parts[4], world.id)
-      .first<{ asset_key: string }>();
+      .first<{ asset_key: string; poster_key: string | null }>();
     if (!row)
       throw new HttpError(404, "This character has already been removed.");
     await env.DB.prepare("DELETE FROM characters WHERE id=? AND world_id=?")
       .bind(parts[4], world.id)
       .run();
     await env.MEDIA.delete(row.asset_key);
+    if (row.poster_key) await env.MEDIA.delete(row.poster_key);
     return json({ ok: true });
   }
-  if (parts[3] === "assets" && parts.length === 5 && request.method === "GET") {
+  if (
+    ["assets", "posters"].includes(parts[3]) &&
+    parts.length === 5 &&
+    request.method === "GET"
+  ) {
     const row = await env.DB.prepare(
-      "SELECT asset_key FROM characters WHERE id=? AND world_id=?",
+      "SELECT c.asset_key,c.appearance,a.poster_key FROM characters c LEFT JOIN animation_jobs a ON a.job_id=c.id AND a.world_id=c.world_id WHERE c.id=? AND c.world_id=?",
     )
       .bind(parts[4], world.id)
-      .first<{ asset_key: string }>();
+      .first<{
+        asset_key: string;
+        appearance: string;
+        poster_key: string | null;
+      }>();
     if (!row) throw new HttpError(404, "This character is unavailable.");
-    const asset = await env.MEDIA.get(row.asset_key);
+    const poster = parts[3] === "posters";
+    const key = poster ? row.poster_key : row.asset_key;
+    if (!key) throw new HttpError(404, "This character is unavailable.");
+    const asset = await env.MEDIA.get(key);
     if (!asset) throw new HttpError(404, "This character is unavailable.");
     return new Response(asset.body, {
       headers: {
-        "Content-Type": "image/png",
+        "Content-Type":
+          !poster && row.appearance === "animated" ? "video/mp4" : "image/png",
         "Cache-Control": "private, no-store",
       },
     });

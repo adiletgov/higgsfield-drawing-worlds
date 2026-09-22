@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { partyPresentation } from "./party.ts";
+import { createLoopPlayback, shouldPlayLoop } from "./playback.ts";
 const drawings = [
   {
     id: "a",
@@ -52,4 +53,98 @@ test("empty or stale active identity cannot enable a round action", () => {
     assert.equal(view.answer, undefined);
     assert.equal(view.queued, 0);
   }
+});
+test("a loop stays still for reduced motion or global pause unless motion is explicitly requested", () => {
+  assert.equal(
+    shouldPlayLoop({ paused: false, reducedMotion: false, requested: false }),
+    true,
+  );
+  assert.equal(
+    shouldPlayLoop({ paused: false, reducedMotion: true, requested: false }),
+    false,
+  );
+  assert.equal(
+    shouldPlayLoop({ paused: false, reducedMotion: true, requested: true }),
+    true,
+  );
+  assert.equal(
+    shouldPlayLoop({ paused: true, reducedMotion: false, requested: true }),
+    false,
+  );
+});
+test("pausing during delayed playback prevents the late start from restarting motion", async () => {
+  let resolvePlay;
+  let moving = false;
+  const media = {
+    play: () =>
+      new Promise((resolve) => {
+        resolvePlay = () => {
+          moving = true;
+          resolve();
+        };
+      }),
+    pause: () => {
+      moving = false;
+    },
+  };
+  const playback = createLoopPlayback(media, () =>
+    assert.fail("Unexpected blocked state"),
+  );
+  playback.setPlaying(true);
+  playback.setPlaying(false);
+  resolvePlay();
+  await Promise.resolve();
+  assert.equal(moving, false);
+  playback.dispose();
+});
+test("blocked autoplay offers recovery while a disposed portrait ignores late rejection", async () => {
+  let blocked = 0;
+  let rejectPlay;
+  const media = {
+    play: () =>
+      new Promise((_resolve, reject) => {
+        rejectPlay = reject;
+      }),
+    pause() {},
+  };
+  const playback = createLoopPlayback(media, () => {
+    blocked++;
+  });
+  playback.setPlaying(true);
+  rejectPlay(new Error("Autoplay blocked"));
+  await Promise.resolve();
+  assert.equal(blocked, 1);
+  playback.setPlaying(true);
+  playback.dispose();
+  rejectPlay(new Error("Old portrait"));
+  await Promise.resolve();
+  assert.equal(blocked, 1);
+});
+test("a disposed playback owner cannot pause a new owner of the same video element", async () => {
+  const starts = [];
+  let moving = false;
+  const media = {
+    play: () =>
+      new Promise((resolve) =>
+        starts.push(() => {
+          moving = true;
+          resolve();
+        }),
+      ),
+    pause: () => {
+      moving = false;
+    },
+  };
+  const oldPlayback = createLoopPlayback(media, () => {});
+  oldPlayback.setPlaying(true);
+  oldPlayback.dispose();
+  const currentPlayback = createLoopPlayback(media, () => {});
+  currentPlayback.setPlaying(true);
+  starts[1]();
+  await Promise.resolve();
+  starts[0]();
+  await Promise.resolve();
+  assert.equal(moving, true);
+  currentPlayback.dispose();
+  assert.equal(moving, false);
 });

@@ -30,12 +30,12 @@ export function accessLink(
   return `${origin}/${route}/${encodeURIComponent(id)}#${encodeURIComponent(token)}`;
 }
 export function safeAssetPath(path: string, id: string) {
-  const prefix = `/api/worlds/${encodeURIComponent(id)}/assets/`;
+  const prefix = `/api/worlds/${encodeURIComponent(id)}/`;
   if (
     !path.startsWith(prefix) ||
-    !/^[A-Za-z0-9_-]+$/.test(path.slice(prefix.length))
+    !/^(assets|posters)\/[A-Za-z0-9_-]+$/.test(path.slice(prefix.length))
   )
-    throw new Error("Character image unavailable.");
+    throw new Error("Drawing media unavailable.");
   return path;
 }
 export async function normalizePhoto(file: File): Promise<string> {

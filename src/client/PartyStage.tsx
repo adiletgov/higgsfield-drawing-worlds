@@ -1,6 +1,6 @@
 import type { Snapshot } from "../shared";
 import { partyPresentation } from "./party";
-import { CharacterImage } from "./WorldStage";
+import { CharacterMedia } from "./CharacterMedia";
 import { Icon } from "./ui";
 
 export function PartyStage({
@@ -48,11 +48,12 @@ export function PartyStage({
         <div className="portrait-paper" key={view.active?.id || "party-sample"}>
           <span className="napkin-corner" aria-hidden="true" />
           {view.active && snapshot ? (
-            <CharacterImage
+            <CharacterMedia
               character={view.active}
               worldId={snapshot.world.id}
               token={token}
               label={view.portraitLabel}
+              paused={paused}
             />
           ) : (
             <img

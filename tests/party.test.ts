@@ -447,4 +447,148 @@ describe("party guessing rounds", () => {
       ).toEqual({ total: 0 });
     },
   );
+
+  it("serves completed video and poster only to this world's viewers and removes both during moderation", async () => {
+    const w = await world(),
+      other = await world(),
+      id = crypto.randomUUID();
+    const db = await mf.getD1Database("DB"),
+      bucket = await mf.getR2Bucket("MEDIA");
+    const videoKey = `characters/${w.id}/${id}.mp4`,
+      posterKey = `posters/${w.id}/${id}.png`;
+    const video = new Uint8Array([
+      0, 0, 0, 24, 102, 116, 121, 112, 105, 115, 111, 109, 0, 0, 0, 0, 105, 115,
+      111, 109, 109, 112, 52, 50,
+    ]);
+    const poster = Uint8Array.from(Buffer.from(image().slice(22), "base64"));
+    await bucket.put(videoKey, video);
+    await bucket.put(posterKey, poster);
+    await db.batch([
+      db
+        .prepare(
+          "INSERT INTO jobs(id,world_id,request_key,name,appearance,status,input_key,created_at,updated_at) VALUES(?,?,?,'Animated secret','animated','completed','unused','2026-01-01','2026-01-01')",
+        )
+        .bind(id, w.id, id),
+      db
+        .prepare(
+          "INSERT INTO animation_jobs(job_id,world_id,phase,poster_key) VALUES(?,?,'animating',?)",
+        )
+        .bind(id, w.id, posterKey),
+      db
+        .prepare(
+          "INSERT INTO characters(id,world_id,name,appearance,asset_key,created_at) VALUES(?,?,'Animated secret','animated',?,'2026-01-01')",
+        )
+        .bind(id, w.id, videoKey),
+    ]);
+    const snap = await snapshot(w.id, w.displayToken),
+      character = snap.characters[0];
+    expect(character).toMatchObject({
+      id,
+      name: "Mystery guest",
+      mediaType: "video",
+      posterUrl: `/api/worlds/${w.id}/posters/${id}`,
+    });
+    for (const [path, mime, expected] of [
+      [character.assetUrl, "video/mp4", video],
+      [character.posterUrl, "image/png", poster],
+    ] as const) {
+      const response = await request(path, "GET", undefined, w.displayToken);
+      expect(response.status).toBe(200);
+      expect(response.headers.get("content-type")).toBe(mime);
+      expect(new Uint8Array(await response.arrayBuffer())).toEqual(expected);
+      expect(
+        (await request(path, "GET", undefined, other.guestToken)).status,
+      ).toBe(403);
+      expect((await mf.dispatchFetch(publicOrigin + path)).status).toBe(403);
+    }
+    await request(`/api/worlds/${w.id}`, "PATCH", { theme: "space" });
+    expect((await snapshot(w.id)).characters[0]).toMatchObject({
+      mediaType: "video",
+      posterUrl: character.posterUrl,
+      name: "Mystery guest",
+    });
+    expect(
+      (await request(`/api/worlds/${w.id}/characters/${id}`, "DELETE")).status,
+    ).toBe(200);
+    expect(await bucket.get(videoKey)).toBeNull();
+    expect(await bucket.get(posterKey)).toBeNull();
+    expect(
+      (await request(character.posterUrl, "GET", undefined, w.displayToken))
+        .status,
+    ).toBe(404);
+  });
+
+  it("exposes animation phase without its answer and fails safely in demo mode", async () => {
+    const w = await world(),
+      payload = {
+        name: "Demo hidden answer",
+        appearance: "animated",
+        requestId: crypto.randomUUID(),
+        image: image(),
+      };
+    const created = await request(`/api/worlds/${w.id}/jobs`, "POST", payload);
+    expect(created.status).toBe(202);
+    const job = (await created.json()) as any;
+    expect(job).toMatchObject({
+      name: "Mystery guest",
+      appearance: "animated",
+      phase: "illustrating",
+    });
+    let current = job;
+    for (let i = 0; i < 60 && current.status !== "failed"; i++) {
+      current = await (
+        await request(`/api/worlds/${w.id}/jobs/${job.id}`)
+      ).json();
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+    expect(current).toMatchObject({
+      status: "failed",
+      name: "Mystery guest",
+      phase: "illustrating",
+    });
+    expect(current.message).toContain("Demo mode does not generate video");
+    expect((await snapshot(w.id)).characters).toHaveLength(0);
+    const legacy = await world("aquarium");
+    expect(
+      (await request(`/api/worlds/${legacy.id}/jobs`, "POST", payload)).status,
+    ).toBe(400);
+    const db = await mf.getD1Database("DB");
+    expect(
+      await db
+        .prepare("SELECT COUNT(*) AS total FROM jobs WHERE world_id=?")
+        .bind(legacy.id)
+        .first(),
+    ).toEqual({ total: 0 });
+  });
+
+  it.each(
+    [["animated"], ["handmade"], { value: "animated" }, null, 1].map(
+      (appearance) => ({ appearance }),
+    ),
+  )(
+    "rejects malformed appearance %j without writing a job or media",
+    async ({ appearance }) => {
+      for (const theme of ["aquarium", "party"]) {
+        const w = await world(theme);
+        const response = await request(`/api/worlds/${w.id}/jobs`, "POST", {
+          name: "Secret answer",
+          appearance,
+          requestId: crypto.randomUUID(),
+          image: image(),
+        });
+        expect(response.status).toBe(400);
+        const db = await mf.getD1Database("DB"),
+          bucket = await mf.getR2Bucket("MEDIA");
+        expect(
+          await db
+            .prepare("SELECT COUNT(*) AS total FROM jobs WHERE world_id=?")
+            .bind(w.id)
+            .first(),
+        ).toEqual({ total: 0 });
+        expect(
+          (await bucket.list({ prefix: `inputs/${w.id}/` })).objects,
+        ).toHaveLength(0);
+      }
+    },
+  );
 });

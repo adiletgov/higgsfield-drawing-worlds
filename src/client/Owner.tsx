@@ -495,7 +495,11 @@ export function Owner({ session }: { session: Session }) {
                     <span>
                       <strong>{c.name}</strong>
                       <small>
-                        {c.appearance === "handmade" ? "Handmade" : "Polished"}
+                        {c.appearance === "animated"
+                          ? "3D cartoon loop"
+                          : c.appearance === "handmade"
+                            ? "Handmade"
+                            : "Polished"}
                       </small>
                     </span>
                     <Button

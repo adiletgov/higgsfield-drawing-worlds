@@ -1,6 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { isOwner, requireSameOrigin } from "../src/server/security";
+import {
+  isOwner,
+  requireSameOrigin,
+  securityHeaders,
+} from "../src/server/security";
 describe("owner boundary", () => {
+  it("allows authenticated local/blob video playback without broadening media origins", () => {
+    const directive = securityHeaders["Content-Security-Policy"]
+      .split(";")
+      .map((x) => x.trim())
+      .find((x) => x.startsWith("media-src"));
+    expect(directive).toBe("media-src 'self' blob:");
+  });
   it("does not allow the local development bypass on a hosted origin", () => {
     expect(
       isOwner(new Request("https://world.example/api/worlds"), {

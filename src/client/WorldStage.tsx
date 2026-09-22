@@ -1,83 +1,9 @@
-import { useEffect, useState, type CSSProperties } from "react";
-import type { Character, Snapshot, Theme } from "../shared";
-import { safeAssetPath } from "./logic";
+import type { CSSProperties } from "react";
+import type { Snapshot, Theme } from "../shared";
+import { CharacterImage } from "./CharacterMedia";
+export { CharacterImage } from "./CharacterMedia";
 import { themes } from "./ui";
 
-export function CharacterImage({
-  character,
-  worldId,
-  token,
-  className = "",
-  label,
-}: {
-  character: Character;
-  worldId: string;
-  token?: string;
-  className?: string;
-  label?: string;
-}) {
-  const [url, setUrl] = useState("");
-  const [failed, setFailed] = useState(false);
-  const [attempt, setAttempt] = useState(0);
-  useEffect(() => {
-    const controller = new AbortController();
-    let objectUrl = "";
-    let disposed = false;
-    setFailed(false);
-    const load = async () => {
-      try {
-        const response = await fetch(
-          safeAssetPath(character.assetUrl, worldId),
-          {
-            headers: token ? { Authorization: `Bearer ${token}` } : {},
-            signal: AbortSignal.any([
-              controller.signal,
-              AbortSignal.timeout(20000),
-            ]),
-            credentials: "same-origin",
-          },
-        );
-        if (!response.ok) throw new Error("Unavailable");
-        const blob = await response.blob();
-        if (!disposed) {
-          objectUrl = URL.createObjectURL(blob);
-          setUrl(objectUrl);
-        }
-      } catch {
-        if (!disposed) setFailed(true);
-      }
-    };
-    void load();
-    return () => {
-      disposed = true;
-      controller.abort();
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
-    };
-  }, [character.assetUrl, worldId, token, attempt]);
-  if (failed)
-    return (
-      <button
-        className="character-unavailable"
-        onClick={() => setAttempt((n) => n + 1)}
-        aria-label={`Reload image for ${label || character.name}`}
-      >
-        ↻<span>{label || character.name}</span>
-      </button>
-    );
-  return url ? (
-    <img
-      src={url}
-      alt={label || character.name}
-      className={className}
-      draggable="false"
-    />
-  ) : (
-    <span
-      className="character-loading"
-      aria-label={`Loading ${label || character.name}`}
-    />
-  );
-}
 export function WorldStage({
   snapshot,
   theme = "aquarium",

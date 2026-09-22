@@ -249,6 +249,10 @@ function decodeRgba(bytes: Uint8Array) {
   }
   throw new HttpError(400, "Choose a PNG or JPEG drawing.");
 }
+export function normalizeImage(bytes: Uint8Array): Uint8Array {
+  const decoded = decodeRgba(bytes);
+  return encode({ ...decoded, channels: 4, depth: 8 });
+}
 export function validateUpload(value: unknown): Uint8Array {
   if (
     typeof value !== "string" ||
@@ -260,8 +264,7 @@ export function validateUpload(value: unknown): Uint8Array {
     const bytes = Uint8Array.from(atob(value.slice(22)), (c) =>
       c.charCodeAt(0),
     );
-    const decoded = decodeRgba(bytes);
-    return encode({ ...decoded, channels: 4, depth: 8 });
+    return normalizeImage(bytes);
   } catch (error) {
     if (error instanceof HttpError) throw error;
     throw new HttpError(

@@ -33,6 +33,22 @@ test("asset fetch cannot send a bearer credential to a remote origin or another 
   assert.throws(() => safeAssetPath("https://evil.test/asset", "abc"));
   assert.throws(() => safeAssetPath("/api/worlds/xyz/assets/123", "abc"));
 });
+test("video posters use the same strict world boundary as the video asset", () => {
+  assert.equal(
+    safeAssetPath("/api/worlds/abc/posters/123", "abc"),
+    "/api/worlds/abc/posters/123",
+  );
+  for (const path of [
+    "/api/worlds/xyz/posters/123",
+    "/api/worlds/abc/posters/../123",
+    "/api/worlds/abc/posters/123?token=secret",
+    "//evil.test/api/worlds/abc/posters/123",
+    "/api/worlds/abc/posters/%2e%2e",
+    "/api/worlds/abc/posters/123/extra",
+  ]) {
+    assert.throws(() => safeAssetPath(path, "abc"));
+  }
+});
 
 // These break if a pre-mutation poll or its error may publish after newer state.
 test("a late pre-reveal poll cannot replace the confirmed revealed portrait", async () => {

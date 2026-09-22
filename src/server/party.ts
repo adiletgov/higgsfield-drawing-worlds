@@ -16,9 +16,9 @@ export function completePartyEntry(
       .bind(jobId, worldId, worldId),
     db
       .prepare(
-        "UPDATE party_entries SET round=(SELECT COALESCE(MAX(round),0)+1 FROM party_entries WHERE world_id=?) WHERE job_id=? AND world_id=? AND round IS NULL",
+        "UPDATE party_entries SET round=(SELECT COALESCE(MAX(round),0)+1 FROM party_entries WHERE world_id=?) WHERE job_id=? AND world_id=? AND round IS NULL AND EXISTS(SELECT 1 FROM characters WHERE id=? AND world_id=?)",
       )
-      .bind(worldId, jobId, worldId),
+      .bind(worldId, jobId, worldId, jobId, worldId),
   ];
 }
 

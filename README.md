@@ -6,7 +6,8 @@ This starter gives **each owner a separate app**, with their own saved parties a
 
 ## What it does
 
-- Starts new worlds in party mode, with handmade or polished portraits.
+- Starts new worlds in party mode, with handmade or polished portraits and an optional **3D cartoon loop** after photo selection.
+- Turns the animation choice into a colorful 3D cartoon still, then a five-second video that plays muted on repeat. The host's API account pays for both stages; animation takes longer than a still portrait.
 - Uses Higgsfield API to prepare the artwork; the template presents the guessing game.
 - Queues drawings automatically, shows one mystery portrait at a time, and saves the round between visits.
 - Keeps names hidden in server responses until the host reveals them. Guests guess aloud; no guest accounts, scoring or voting setup.
@@ -15,7 +16,7 @@ This starter gives **each owner a separate app**, with their own saved parties a
 - Preserves aquarium, dinosaur and space worlds alongside the party game.
 - Keeps API credentials on the server, outside the browser and shared links.
 
-Use one clearly drawn person on plain paper per upload. Keep their name off the drawing and enter it separately in the answer field. The app uses the answer you supply; it does not identify people from images. These are illustrations, not generated 3D models. Real generation takes processing time.
+Use one clearly drawn person on plain paper per upload. Keep their name off the drawing and enter it separately in the answer field. The app uses the answer you supply; it does not identify people from images. The animated option is a rendered 3D cartoon video, not an interactive 3D model. Real generation takes processing time, and the loop's transition may be noticeable.
 
 ## Set up your own copy
 

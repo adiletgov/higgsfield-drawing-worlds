@@ -75,6 +75,7 @@ Guest and display tokens are link capabilities. Keep them in URL fragments on th
 2. Confirm real owner sign-in and denial of all owner mutations to guests and signed-out visitors.
 3. Create a world, open the display on another device, and scan its guest QR code from a phone.
 4. With a bounded paid test authorized, generate from photos of two different paper portraits. Check handmade and polished output, anonymous guessing, host reveal and next drawing. Verify guest/display responses contain no unrevealed answers, including job status responses.
+   For the optional 3D cartoon loop, budget one image generation and one video generation. Verify both stored stages, muted five-second playback, pause/reduced motion, poster/manual-play fallback and authenticated video/poster access. Reloading or repeating a request must not submit either paid stage again.
 5. Refresh and reopen the world; confirm persistence. Submit concurrent/retried requests and confirm they do not duplicate a paid job.
 6. Confirm pause uploads, guest-link replacement, character removal, and failure handling preserve the intended world. Check that stale or repeated reveal/next requests cannot skip an unrevealed portrait; an explicitly removed portrait is a host moderation exception. Preserve existing non-party worlds.
 7. Inspect browser responses and built assets for accidental secrets. Confirm local bypass and simulated output are disabled on the hosted origin.

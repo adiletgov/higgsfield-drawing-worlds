@@ -85,6 +85,14 @@ export function Join({ id, session }: { id: string; session: Session }) {
   const world = resource.data?.world;
   const isParty = !world || world.theme === "party";
   const active = !!jobId || sending || uncertain || recovering;
+  useEffect(() => {
+    if (world && !isParty && appearance === "animated" && !active) {
+      setAppearance("handmade");
+      setError(
+        "The host changed the setting. Cartoon loops are available in Portrait party; choose a still finish here.",
+      );
+    }
+  }, [world?.theme, isParty, appearance, active]);
   usePageTitle(world ? `Add a drawing to ${world.name}` : "Add your drawing");
   useUnsaved(Boolean(photo) && !jobId);
   useEffect(() => {
@@ -261,13 +269,34 @@ export function Join({ id, session }: { id: string; session: Session }) {
     setPhoto("");
     setName("");
     setShowAnswer(false);
+    setAppearance("handmade");
     setFileName("");
     setError("");
     setUncertain(false);
     setRequestId(crypto.randomUUID());
     if (photoInput.current) photoInput.current.value = "";
   }
-  const status = job ? statusCopy[job.status] : null;
+  const animationJob = job?.appearance === "animated";
+  const animationPending =
+    animationJob &&
+    job &&
+    ["queued", "submitting", "processing"].includes(job.status);
+  const status = animationPending
+    ? {
+        title:
+          job.phase === "animating"
+            ? "Giving your cartoon some moves."
+            : job.status === "queued"
+              ? "Your cartoon is in line."
+              : "Creating your 3D cartoon.",
+        body:
+          job.phase === "animating"
+            ? "The portrait is ready. Higgsfield is making its five-second video. Animation takes longer than a still drawing."
+            : "First, Higgsfield creates a colorful 3D portrait. Then it makes a five-second animation for the shared screen. This takes longer than a still drawing.",
+      }
+    : job
+      ? statusCopy[job.status]
+      : null;
   return (
     <div
       className={`join-page theme-${world?.theme || "party"} ${isParty ? "party-join" : ""}`}
@@ -374,7 +403,11 @@ export function Join({ id, session }: { id: string; session: Session }) {
                 <span className="done">Received</span>
                 <i />
                 <span className={job?.status === "processing" ? "done" : ""}>
-                  Preparing
+                  {animationPending
+                    ? job.phase === "animating"
+                      ? "Animating"
+                      : "Creating portrait"
+                    : "Preparing"}
                 </span>
                 <i />
                 <span>Ready to guess</span>
@@ -584,8 +617,38 @@ export function Join({ id, session }: { id: string; session: Session }) {
                     <Icon name="check" size={12} />
                   </i>
                 </label>
+                {isParty && photo && (
+                  <label
+                    className={`animation-finish ${appearance === "animated" ? "selected" : ""} ${session.demo ? "finish-unavailable" : ""}`}
+                  >
+                    <input
+                      type="radio"
+                      name="appearance"
+                      checked={appearance === "animated"}
+                      disabled={session.demo}
+                      onChange={() => setAppearance("animated")}
+                      aria-describedby="animation-finish-help"
+                    />
+                    <Icon name="play" size={25} />
+                    <strong>3D cartoon loop</strong>
+                    <span id="animation-finish-help">
+                      {session.demo
+                        ? "Available with live AI generation. Preview mode does not create video."
+                        : "A colorful 3D cartoon in a five-second video that repeats."}
+                    </span>
+                    <i>
+                      <Icon name="check" size={12} />
+                    </i>
+                  </label>
+                )}
               </div>
             </fieldset>
+            {appearance === "animated" && (
+              <p className="animation-cost-note" role="status">
+                Animation takes longer. This creates both an image and a video,
+                adding video generation to the host’s API cost.
+              </p>
+            )}
             {storageWarning && <Notice>{storageWarning}</Notice>}
             {error && <Notice error>{error}</Notice>}
             {uncertain ? (

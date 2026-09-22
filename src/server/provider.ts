@@ -9,6 +9,12 @@ export interface GenerationResult {
   message?: string;
 }
 
+export interface VideoGenerationResult {
+  status: "processing" | "completed" | "failed";
+  videoUrl?: string;
+  message?: string;
+}
+
 type ConnectionClassification =
   | "ready"
   | "not-configured"
@@ -533,17 +539,11 @@ async function apiJson(
   }, billable);
 }
 
-export async function submitGeneration(
-  env: ProviderEnv,
-  png: Uint8Array,
-  prompt: string,
-): Promise<{ requestId: string }> {
+async function uploadPng(env: ProviderEnv, png: Uint8Array): Promise<string> {
   if (png.length > IMAGE_BYTES || !isPng(png))
     throw new ProviderError(
       "Please upload a valid PNG drawing smaller than 12 MB.",
     );
-  if (!prompt.trim())
-    throw new ProviderError("The drawing instructions are missing.");
   const upload = await apiJson(env, "/files/generate-upload-url", {
     content_type: "image/png",
   });
@@ -604,6 +604,17 @@ export async function submitGeneration(
       );
     }
   });
+  return publicUrl;
+}
+
+export async function submitGeneration(
+  env: ProviderEnv,
+  png: Uint8Array,
+  prompt: string,
+): Promise<{ requestId: string }> {
+  if (!prompt.trim())
+    throw new ProviderError("The drawing instructions are missing.");
+  const publicUrl = await uploadPng(env, png);
   // A POST is deliberately sent once. The provider has no idempotency key.
   const result = await apiJson(
     env,
@@ -715,6 +726,146 @@ export async function fetchResultImage(url: string): Promise<Uint8Array> {
       if (error instanceof ProviderError) throw error;
       throw new ProviderError(
         "The generated image could not be downloaded. Please check again later.",
+        false,
+        true,
+      );
+    }
+  });
+}
+
+/** One paid POST only; callers persist the returned ID before further polling. */
+export async function submitVideoGeneration(
+  env: ProviderEnv,
+  png: Uint8Array,
+  prompt: string,
+): Promise<{ requestId: string }> {
+  if (!prompt.trim())
+    throw new ProviderError("The animation instructions are missing.");
+  const publicUrl = await uploadPng(env, png);
+  const result = await apiJson(
+    env,
+    "/kling-video/v2.5-turbo/standard/image-to-video",
+    {
+      prompt,
+      image_url: publicUrl,
+      duration: 5,
+      cfg_scale: 0.5,
+      negative_prompt:
+        "camera movement, scene changes, cuts, text, captions, names, extra characters, distorted face, distorted hands, disappearing limbs",
+    },
+    true,
+  );
+  if (typeof result.request_id !== "string" || !UUID.test(result.request_id)) {
+    throw new ProviderError(
+      "The animation service did not confirm a request ID. Check before trying again.",
+      true,
+    );
+  }
+  return { requestId: result.request_id };
+}
+
+export async function pollVideoGeneration(
+  env: ProviderEnv,
+  id: string,
+): Promise<VideoGenerationResult> {
+  if (!UUID.test(id))
+    throw new ProviderError("The saved animation request is invalid.");
+  const result = await apiJson(env, `/requests/${id}/status`);
+  if (
+    typeof result.request_id !== "string" ||
+    result.request_id.toLowerCase() !== id.toLowerCase()
+  ) {
+    throw new ProviderError(
+      "The animation service returned a different request.",
+      false,
+      true,
+    );
+  }
+  if (result.status === "queued" || result.status === "in_progress")
+    return { status: "processing" };
+  if (["failed", "nsfw", "canceled"].includes(String(result.status))) {
+    return {
+      status: "failed",
+      message:
+        "This drawing could not be animated. Check the saved request before trying another drawing.",
+    };
+  }
+  if (result.status === "completed" && result.video) {
+    return {
+      status: "completed",
+      videoUrl: mediaUrl(object(result.video).url),
+    };
+  }
+  throw new ProviderError(
+    "The animation service has not returned a usable video. Please check again later.",
+    false,
+    true,
+  );
+}
+
+const VIDEO_BYTES = 48 * 1024 * 1024;
+function isMp4(bytes: Uint8Array): boolean {
+  if (bytes.length < 24) return false;
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const boxLength = view.getUint32(0);
+  const kind = String.fromCharCode(...bytes.subarray(4, 8));
+  const brand = String.fromCharCode(...bytes.subarray(8, 12));
+  return (
+    boxLength >= 16 &&
+    boxLength <= bytes.length &&
+    kind === "ftyp" &&
+    [
+      "isom",
+      "iso2",
+      "iso4",
+      "iso5",
+      "iso6",
+      "mp41",
+      "mp42",
+      "avc1",
+      "dash",
+      "MSNV",
+      "M4V ",
+    ].includes(brand)
+  );
+}
+
+/** Fetch only the result of the matching stored provider request, never a guest URL. */
+export async function fetchResultVideo(url: string): Promise<Uint8Array> {
+  const target = mediaUrl(url);
+  return withDeadline(async (signal) => {
+    try {
+      const response = await fetch(target, {
+        method: "GET",
+        redirect: "manual",
+        signal,
+      });
+      if (
+        !response.ok ||
+        response.redirected ||
+        response.headers
+          .get("content-type")
+          ?.split(";")[0]
+          .trim()
+          .toLowerCase() !== "video/mp4"
+      ) {
+        await response.body?.cancel().catch(() => undefined);
+        throw new ProviderError(
+          "The generated animation could not be downloaded.",
+          false,
+          true,
+        );
+      }
+      const bytes = await boundedBytes(response, VIDEO_BYTES, signal);
+      if (!isMp4(bytes))
+        throw new ProviderError(
+          "The animation service returned an unsupported video format.",
+        );
+      return bytes;
+    } catch (error) {
+      if (error instanceof ProviderError) throw error;
+      throw new ProviderError(
+        "The generated animation could not be downloaded. Please check again later.",
         false,
         true,
       );
