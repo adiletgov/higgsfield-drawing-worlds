@@ -1,6 +1,24 @@
 # Validation record
 
-Status on September 22, 2026: **party mode is live and the two-portrait browser flow passed**. Creator pilot coverage remains incomplete.
+Status on September 22, 2026: **party mode and the optional 3D cartoon loop are live**. Creator pilot coverage remains incomplete.
+
+## 3D cartoon loop: live check
+
+- One real animated Alex portrait completed through both Higgsfield stages in **218.249 seconds (about 3 minutes 38 seconds)**. This is an observed application job creation-to-completion time, not a processing-time guarantee. The input was an original digital drawing of a fictitious person.
+- The finished colorful, dimensional cartoon appeared automatically on the separate party screen. The stored MP4 measured 960 × 960 pixels and 5.042 seconds in the browser. It played muted on repeat, with visible facial movement.
+- Refreshing the guest page during processing resumed the existing animation job. The completion message did not reveal the supplied answer.
+- Local pause and play worked. Global pause stopped the video and disabled its local play button. Host reveal changed the heading and accessible media label to Alex while preserving the same media source and exact paused position; resuming worked.
+- Refreshing the party display restored round one, the revealed answer, and the playing cartoon. The resulting character and blink were visually checked after refresh.
+- Before reveal, a guest request without a ChatGPT session returned `200`, with `Mystery guest` in the snapshot and completed-job response. The MP4 and PNG poster returned `200` with that invitation; both returned `403` without authorization.
+- This check used one image-generation request and one video-generation request. Estimated cost was $0.145 at the model's displayed discount, or $0.25 at its displayed undiscounted rate. These are dated estimates for this test, not a pricing guarantee; the billing ledger was not checked.
+
+## 3D cartoon loop: source and interface checks
+
+- The third finish appears after selecting a photo in party mode. Selecting it alone does not start generation. The form explains that it creates an image and a video, takes longer, and adds video generation to the host's API cost.
+- The live pipeline persists the illustration and animation stages independently, stores the poster and MP4, and publishes the portrait only when the video is ready. Ambiguous paid submissions are not automatically repeated.
+- 137 Vitest tests passed before independent review. Two review findings were then fixed: strict appearance input validation and terminal handling of malformed provider image data. The 39 affected tests passed after those fixes. Typecheck, formatting, the production build, 14 client checks, and a strict UI audit with zero findings passed on the final application source.
+- Coverage includes stage recovery, duplicate submission protection, failed or uncertain provider responses, authenticated video and poster access, unrevealed answers, stale polling, and video playback lifecycle. Independent review found no remaining material findings after the fixes.
+- A 390px browser preview showed all finish controls and the submit action without horizontal overflow. Demo mode clearly disables video generation. This was not a physical-phone test.
 
 ## Party mode: live checks
 

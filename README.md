@@ -24,9 +24,9 @@ Start with the [copyable ChatGPT setup prompt](docs/SETUP-PROMPT.md). Attach a d
 
 The intended host is ChatGPT Sites. You will need a Sites-enabled ChatGPT account, a Higgsfield API account, and API credentials entered in your own Site's private settings. See [deployment details](docs/DEPLOYMENT.md).
 
-**Release status:** the [reference app](https://higgsfield-drawing-worlds.higgsfield-i-1075.chatgpt.site) is live with party mode. Two real portraits completed in about 45 and 31 seconds, including a guest submission without a ChatGPT account. Anonymous queueing, host reveal, next drawing, and round persistence after refresh worked. Guest requests could not reveal answers or access the host's room list. Source checks passed: 107 Vitest tests, 9 client checks, typecheck, formatting, and a strict UI audit with zero findings.
+**Release status:** the [reference app](https://higgsfield-drawing-worlds.higgsfield-i-1075.chatgpt.site) is live with party mode and the optional **3D cartoon loop**. A real animation completed in about 3 minutes 38 seconds and automatically played as a muted five-second loop. Earlier still portraits completed in about 45 and 31 seconds. These are observed timings, not speed guarantees. Anonymous queueing, host reveal, next drawing, and round persistence after refresh worked. Guest requests could not reveal answers or access the host's room list. Video and poster requests without a valid invitation or owner session were denied.
 
-A 390px browser preview had no horizontal overflow, and a local server restart preserved the round. The live test inputs were original digital illustrations. A separate owner's one-prompt setup, a photo of a paper drawing, and physical phone/TV use remain unverified. See the [validation record](docs/VALIDATION.md) before filming.
+A 390px browser preview had no horizontal overflow, and a local server restart preserved the round. Automated checks, the production build, and independent review passed; see the [validation record](docs/VALIDATION.md) for exact coverage. The live test inputs were original digital illustrations. A separate owner's one-prompt setup, a photo of a paper drawing, and physical phone/TV use remain unverified.
 
 ## Play at a party
 
