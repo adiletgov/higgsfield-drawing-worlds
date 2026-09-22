@@ -140,7 +140,9 @@ export async function advanceJob(
         uncertain ? "uncertain" : "failed",
         uncertain
           ? "The provider may have accepted this drawing. Check your Higgsfield API activity before submitting it again."
-          : "This drawing could not be sent. The owner can check API access and balance, then try a new upload.",
+          : error instanceof ProviderError
+            ? error.message
+            : "This drawing could not be sent. Please check again later.",
       );
     }
     return;
