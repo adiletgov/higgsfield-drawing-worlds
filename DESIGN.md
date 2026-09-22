@@ -1,27 +1,29 @@
 ---
 version: alpha
-name: Drawing Worlds
-description: A sketchbook opens into a living illustrated world for shared drawing play.
+name: Draw the room
+description: A portrait guessing game for adult parties, with cocktail napkins and a midnight projector stage.
 colors:
-  ink: "#163f49"
-  muted: "#567079"
-  primary: "#17675f"
-  primary-hover: "#10564f"
-  paper: "#f8faf4"
-  surface: "#ffffff"
-  lemon: "#f5e8a5"
-  mint: "#e3f2e9"
-  line: "#dce4de"
+  ink: "#232139"
+  muted: "#746d7e"
+  primary: "#8882ee"
+  primary-hover: "#9e99f1"
+  paper: "#fffaf1"
+  surface: "#fffdfa"
+  apricot: "#f2bc9b"
+  pink: "#d66f91"
+  accent-ink: "#5b53b5"
+  mint: "#eeebfa"
+  line: "#e4dde1"
   danger: "#a63238"
   danger-soft: "#fff0ee"
-  focus: "#226bc2"
-  scroll-thumb: "#789a93"
-  scroll-track: "#e8eee7"
-  scroll-hover: "#456f68"
-  scroll-active: "#244e48"
+  focus: "#5b53b5"
+  scroll-thumb: "#92879c"
+  scroll-track: "#f0e9e7"
+  scroll-hover: "#746580"
+  scroll-active: "#51415d"
 typography:
   display:
-    fontFamily: "Trebuchet MS, Avenir Next Rounded, Arial Rounded MT Bold, sans-serif"
+    fontFamily: "Avenir Next, Arial Black, Segoe UI, sans-serif"
   body:
     fontFamily: "Avenir Next, Avenir, Segoe UI, sans-serif"
 rounded:
@@ -40,71 +42,82 @@ components:
     rounded: "22px"
 ---
 
-# Drawing Worlds Design System
+# Draw the room Design System
 
 ## Overview
 
-The North Star is a museum drawing table beside a giant living diorama: tactile paper controls, an expressive headline, and a wide illustrated stage. The stage carries the personality. Controls stay familiar and quiet.
+The North Star is a dinner party that turns into an unofficial portrait gallery: cocktail napkins, a projected mystery face, and friends making questionable guesses. The headline gives the whole premise: **Draw someone at this party.** The product serves adults gathering in person, with one host, phones for uploads, and a shared screen for guessing.
 
-This is a product for hosts creating shared drawing worlds, participants uploading from phones, and audiences watching a shared display. The user brief specifies English, aquarium/dinosaur/space environments, photo-to-character generation, and an append-only population except explicit owner removal. No Japan-specific locale or market rules were requested. No geographic market assumption is made.
+The current task explicitly approved replacing the children's aquarium emphasis with a party game. The `party` setting is the default for new rooms. Existing aquarium, dinosaur, and space rooms retain their worlds, characters, and scene behavior. The rename changes public-facing language; API identifiers and storage remain compatible.
 
-The three routes share one identity: `/` is the host studio, `/join/:id` is a focused mobile form, and `/world/:id` gives the illustrated world the entire screen. The signature is the window into a living illustration, paired with a small pinned invitation note. Do not convert this into a generic analytics dashboard, card grid, dark developer console, or marketing pricing page.
+All three routes are product surfaces: `/` is the host desk, `/join/:id` is a phone contribution form, and `/world/:id` is a display. The signature is a single caricature on a tilted cocktail napkin against midnight ink. The host desk echoes the display, with an apricot invitation alongside it. Keep the controls quiet and familiar.
 
-Runtime ownership is **Model B**: the semantic custom properties in `src/client/styles.css :root` are canonical. This document mirrors accepted token values and explains their role. Shared React primitives consume those properties. Original SVG scenes own their separate illustrative palette; those values do not define control semantics. No component library or remote font is used.
+English is the current UI language. No geographic market or Japanese locale was requested. No audience or compliance assumptions follow from language alone. Avoid children's classroom copy, generic SaaS metrics, colorful card grids, fake urgency, and a developer-console appearance.
+
+Runtime ownership is **Model B**: `src/client/styles.css :root` owns semantic tokens; this file mirrors exact accepted values and explains their role. Shared controls consume those variables. Original SVG artwork owns its separate illustration palette. No third-party font, imagery, or UI dependency is introduced.
 
 ## Colors
 
-Ink is the default text; muted is supporting prose. Deep evergreen primary is a clearly legible action against white. Lemon is the drawing-paper accent, mint is neutral positive context. Danger is reserved for removal, invitation replacement confirmation, and errors. Focus blue is intentionally distinct from scene colors.
+Midnight ink `#232139` anchors text and the projector stage. Electric periwinkle `#8882ee` marks safe primary actions with dark ink text; it is not paired with small white button text. Darker accent ink `#5b53b5` is used for small colored text on warm paper. Apricot `#f2bc9b` is the invitation/napkin accent, and pink `#d66f91` is a restrained expressive mark. Warm white `#fffaf1` keeps the surrounding product readable.
 
-The application shell is light. Three scene themes change only the illustrated stage; no theme changes the button hierarchy. Every surface inherits visible tokenized scrollbars; forced-color mode returns scrollbar painting to the browser. Decorative scene illustration retains its colors for recognizability.
+The legacy `--lemon` name is a compatibility alias of `--apricot`. The legacy `--mint` token is now pale lavender `#eeebfa`, used as the neutral information and selection surface. These aliases avoid duplicating component systems while previous scenes remain available. Danger, focus, disabled, and error meanings remain consistent across all settings.
+
+The shell is light; the party stage is dark. Legacy themes change illustration, not control semantics. All application scrollbars use one tokenized baseline. Forced-color mode yields scrollbar colors to the operating system; artwork retains its original palette.
 
 ## Typography
 
-Trebuchet MS gives headings rounded, open, playful shapes without a font download or late layout shift. The display stack has platform rounded fallbacks; the body uses Avenir Next and Segoe UI for a legible friendly cadence. Body baseline is 15px with 1.55 line height; form inputs remain 15px or larger on phones. Utility labels are restrained uppercase with wide tracking. Names wrap rather than clip in editing and world headings.
+Avenir Next and a heavy system sans-serif fallback give the headline an adult, conversational poster quality. The display stack is `Avenir Next, Arial Black, Segoe UI, sans-serif`; the body is `Avenir Next, Avenir, Segoe UI, sans-serif`. System fonts avoid late downloads and layout shifts. Display headings use tight tracking and substantial weight; supporting copy stays small and quiet.
+
+Answer text is large enough to read across a room. Long answers wrap within the stage instead of clipping. Eyebrows identify the round or task; they never expose an unrevealed name. Native script fallbacks remain available for guest-entered names.
 
 ## Layout
 
-The host studio is a maximum 1500px document with 4.2% side margins. The stage is the dominant column; a 272px pinned invitation panel sits beside it. At 680px and below, the stage and invitation stack, and the invitation becomes a compact two-column panel. Forms keep natural document scrolling.
+The host document uses a 1500px maximum with 4.2% side margins. A wide stage is paired with a 285px invitation panel; host controls sit immediately below the stage. The host can see the same mystery state as the audience and act without scrolling to a separate settings page. Rooms and drawings live in compact shelves/lists below.
 
-Only the dedicated display owns a 100dvh viewport. It has no forms or data tables. Its invitation sits over the lower corner with a reserved QR image footprint. Modal dialogs use a bounded internal scroller. Image geometry is reserved before load. The mobile upload is a maximum 540px single column with a visible selected-photo preview.
+The dedicated display owns `100dvh`. On a wide screen, one large napkin portrait and the guessing question sit side by side, with the QR invitation in the lower corner. Narrow/short displays stack the portrait and question and retain access to the invitation. The photo upload is a 540px maximum document; its instructions, file input, secret answer, and finish choice remain in natural flow.
+
+At 680px and below, the host stage and invitation stack. Host action buttons remain a pair of full-width controls. Modal content scrolls within safe viewport bounds. Photos and QR images reserve dimensions. Ordinary forms never inherit display viewport clipping.
 
 ## Elevation & Depth
 
-Scene depth comes from layered SVG geography, light rays, flora, and foreground textures. Control surfaces use fine borders and minimal shadow. The pinned note has a translucent paper tab. Native dialog top-layer/backdrop provides isolation; a soft backdrop is the only strong UI depth treatment.
+The projector stage has a low-contrast cone of light, sparse line drawings of glasses, and minimal confetti at the edges. A lightly rotated paper surface creates the central physical reference. It carries a subtle shadow and dashed inner edge, rather than a generic floating dashboard card.
+
+Utility surfaces use thin borders and modest depth. The invitation has a translucent tape tab. Native dialog top-layer isolation and one soft backdrop create the only strong UI overlay.
 
 ## Shapes
 
-Controls use the 12px radius. The stage uses 22px; modal dialogs use 24px. Tiny circular sketch marks and radio checks derive from the physical drawing theme. Do not give every content block its own rounded card. The world list is a compact shelf; resident rows are simple list items.
+Controls retain 12px radius, the stage 22px, and dialogs 24px. Napkin edges stay rectangular to distinguish the artwork from controls. The brand mark is a small, rotated pencil tile. Do not repeat napkin styling around every field or list item.
 
 ## Components
 
-`ui.tsx` owns Button, Dialog, Notice, Loading, QR, Brand, ThemePicker, and icons. `WorldStage.tsx` owns the stage and authenticated character images. `api.ts` owns resource polling, titles, token capture, and unload warnings.
+`ui.tsx` owns shared Button, Dialog, Notice, Loading, QR, Brand, ThemePicker, and icons. `PartyStage.tsx` owns the mystery portrait and public answer presentation. `PartyControls.tsx` owns host round transitions. `party.ts` derives safe visible/accessibility labels and action eligibility from the server state. `WorldStage.tsx` retains legacy living worlds and authenticated image loading. `api.ts` owns resource polling, token capture, titles, and unload warnings.
 
-| Document token               | Runtime owner                           | Consumers                              |
-| ---------------------------- | --------------------------------------- | -------------------------------------- |
-| colors.*                     | matching `--*` properties in styles.css | shared controls, shell, notices, focus |
-| typography.display           | `--font-display`                        | headings, brand, illustration captions |
-| typography.body              | `--font-body`                           | forms, controls, supporting prose      |
-| rounded.control/stage/dialog | `--radius-control/stage/dialog`         | Button, world frame, Dialog            |
-| spacing.unit                 | `--space-unit`                          | documented rhythm                      |
-| colors.scroll-*              | `--scroll-*`                            | global scrollbar baseline              |
+| Document token               | Runtime owner                              | Consumers                                      |
+| ---------------------------- | ------------------------------------------ | ---------------------------------------------- |
+| colors.*                     | matching custom properties in styles.css   | controls, shell, notices, focus, stage accents |
+| colors.apricot               | `--apricot`, compatibility alias `--lemon` | invitation, paper detail, step markers         |
+| typography.display           | `--font-display`                           | brand, headline, round question/answer         |
+| typography.body              | `--font-body`                              | forms, controls, supporting prose              |
+| rounded.control/stage/dialog | `--radius-control/stage/dialog`            | Button, stage frame, Dialog                    |
+| colors.scroll-*              | global `--scroll-*`                        | every product scroll surface                   |
 
-Buttons combine primary, neutral, ghost, or danger emphasis with semantic labels. They reserve dimensions while busy and block duplicate actions. Hover uses a slight tonal change, focus a 3px ring, pressed a 1px movement, disabled reduced opacity plus native disabled behavior. Errors remain inline; Notice is a shared persistent live region rather than a transient toast.
+Buttons preserve dimensions while busy, use native disabled behavior, and retain visible keyboard focus. A shared Notice provides persistent status/error feedback. Names and progress are text, never color-only state. The answer is absent from the stage title and image accessibility label until reveal. The server also redacts it, including owner and job responses.
 
-Forms use real labels, native radio groups, a real file input, inline validation, and no browser validation bubbles. Theme choice is a visible native radio group; no select popup is needed. The shared app-owned Dialog wraps native `dialog.showModal()` for proven top-layer isolation, inert background, Escape, focus containment, and focus restoration. Serious confirmations focus their safe action.
+The host has **Reveal name**, followed by **Next drawing**. The display and guest page never include these actions. Before reveal, the napkin is headed **Who is it?** After reveal, the answer appears in apricot. The queue count is a real number of ready drawings waiting behind the current round, not a quota.
 
-Original icons use consistent 1.8px rounded strokes in a 24px viewbox. Text labels accompany consequential actions. Icon-only controls have accessible names.
+The secret-answer field is masked by default with a keyboard-operable Show/Hide action. The guest is explicitly told to keep the name off the drawing. Native radio groups choose handmade or polished finish and setting. The shared app-owned dialog wraps native `showModal()` for inert background, focus containment, Escape, and focus restoration.
 
-Characters retain identity and position across snapshots. Their slow drift and small body movement communicate a living world. The stage has a pause control, and reduced motion disables drift, atmospheric motion, and interaction transitions. Three original SVG backgrounds, and three labeled sample drawings, are self-contained local assets.
+The napkin has only a slow, subtle drift. A pause control is available and reduced motion disables it. The projector does not move the active portrait out of frame. The legacy scenes keep their slow character motion. Preview processing and illustrative sample artwork remain clearly labeled.
 
-Copy is warm, short, and specific. A preview session says local sample processing and never implies a live Higgsfield AI request. Progress describes real named states without fake percentages. No generation quotas, credit counters, or invented budget limits appear.
+Copy is adult, sociable, and gently self-deprecating: “Good company. Questionable portraits.” Instructions remain literal and short. No score rules, timers, winner mechanics, quotas, or costs are invented. The only billing text explains that the host pays for live generation and that uncertain retries must avoid duplicate paid requests.
 
 ## Do's and Don'ts
 
-- Do make the shared world the largest and most characteristic object on screen.
-- Do preserve all existing characters while adding a new one or showing a failure.
-- Do keep the upload journey understandable from a phone.
-- Do visibly label sample imagery and demo processing.
-- Don't expose bearer tokens in query strings, logs, or inline notifications.
-- Don't imply local demo processing proves live Higgsfield AI integration.
-- Don't reduce touch or keyboard usability for animation or decorative flourishes.
+- Do make the game premise immediately clear.
+- Do show one mystery drawing prominently and keep unrevealed names out of visible and accessible labels.
+- Do keep the shared display independent from host controls.
+- Do preserve previous drawings and legacy worlds.
+- Do keep the secret answer off the photographed paper.
+- Don't imply sample processing or illustration is a live AI output.
+- Don't put keys, tokens, or hidden answers in diagnostic status messages.
+- Don't replace server authorization or guarded round transitions with UI-only checks.

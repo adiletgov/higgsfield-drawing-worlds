@@ -22,6 +22,8 @@ import {
   themes,
 } from "./ui";
 import { CharacterImage, WorldStage } from "./WorldStage";
+import { PartyStage } from "./PartyStage";
+import { PartyControls } from "./PartyControls";
 
 type Modal =
   | "create"
@@ -42,7 +44,9 @@ export function Owner({ session }: { session: Session }) {
   const list = useResource<{ worlds: World[] }>("/api/worlds");
   const [selected, setSelected] = useState("");
   const world =
-    list.data?.worlds.find((w) => w.id === selected) || list.data?.worlds[0];
+    list.data?.worlds.find((w) => w.id === selected) ||
+    list.data?.worlds.find((w) => w.theme === "party") ||
+    list.data?.worlds[0];
   const snapshot = useResource<Snapshot>(
     world ? `/api/worlds/${world.id}` : null,
     undefined,
@@ -59,6 +63,7 @@ export function Owner({ session }: { session: Session }) {
   const connectionLock = useRef(false);
   usePageTitle(world ? `${world.name} · Studio` : "Your studio");
   const current = snapshot.data?.world || world;
+  const isParty = !current || current.theme === "party";
   const join = current?.guestToken
     ? accessLink(location.origin, "join", current.id, current.guestToken)
     : "";
@@ -122,26 +127,31 @@ export function Owner({ session }: { session: Session }) {
   }
   async function remove(character: Character) {
     if (!current || busy) return;
+    const worldId = current.id;
+    let removed = false;
     setBusy(true);
     setError("");
     try {
-      await api(`/api/worlds/${current.id}/characters/${character.id}`, {
+      await api(`/api/worlds/${worldId}/characters/${character.id}`, {
         method: "DELETE",
       });
-      snapshot.setData((old) =>
-        old
-          ? {
-              ...old,
-              characters: old.characters.filter((c) => c.id !== character.id),
-            }
-          : old,
-      );
+      removed = true;
+      const fresh = await api<Snapshot>(`/api/worlds/${worldId}`);
+      snapshot.setData((old) => (old?.world.id === worldId ? fresh : old));
       setModal(null);
-      setNotice(`${character.name} removed from this world.`);
+      setNotice("Drawing removed. The current round is up to date.");
     } catch (e) {
-      setError(
-        e instanceof Error ? e.message : "The character could not be removed.",
-      );
+      if (removed) {
+        setModal(null);
+        setError(
+          "The drawing was removed, but the screen could not refresh. Reconnecting to the current round…",
+        );
+        snapshot.refresh();
+      } else {
+        setError(
+          e instanceof Error ? e.message : "The drawing could not be removed.",
+        );
+      }
     } finally {
       setBusy(false);
     }
@@ -187,10 +197,12 @@ export function Owner({ session }: { session: Session }) {
       <header className="app-header">
         <Brand />
         <nav aria-label="Studio navigation">
-          <span className="studio-label">Your creative playground</span>
+          <span className="studio-label">
+            A party game with a personal touch
+          </span>
           <span className="owner-badge">
             <span className="owner-dot" />
-            Host studio
+            Host desk
           </span>
         </nav>
       </header>
@@ -202,32 +214,26 @@ export function Owner({ session }: { session: Session }) {
       )}
       {!session.generationReady && !session.demo && (
         <Notice>
-          Worlds are ready. The host still needs to connect Higgsfield
-          generation before drawings can come alive.
+          Your room is ready. Connect Higgsfield generation to prepare the
+          portraits.
         </Notice>
       )}
       <main className="studio-main">
         <div className="heading-row">
           <div>
-            <div className="eyebrow">PAPER TO POSSIBILITY</div>
+            <div className="eyebrow">
+              YOUR FRIENDS. YOUR VERY QUESTIONABLE ART.
+            </div>
             <h1>
-              Small drawings.
-              <br className="mobile-break" /> <span>Big worlds.</span>
-              <svg
-                className="heading-star"
-                viewBox="0 0 46 50"
-                aria-hidden="true"
-              >
-                <path
-                  d="m21 2 4 14 15-8-10 16 14 7-18 2-3 16-6-16L2 37l9-12L3 14l15 6z"
-                  fill="#f6d875"
-                  stroke="#163f49"
-                  strokeWidth="2"
-                />
-              </svg>
+              Draw someone
+              <br />
+              <span>at this party.</span>
+              <span className="hero-asterisk" aria-hidden="true">
+                ✳
+              </span>
             </h1>
             <p className="intro">
-              Turn a drawing into a character. Give it somewhere to belong.
+              Pass the paper. Pick a face. Let the room do the guessing.
             </p>
           </div>
           <Button
@@ -238,22 +244,22 @@ export function Owner({ session }: { session: Session }) {
             }}
           >
             <Icon name="plus" />
-            Create a world
+            New party
           </Button>
         </div>
         <div className="workspace">
-          <section className="world-main" aria-label="World preview">
+          <section className="world-main" aria-label="Shared screen preview">
             <div className="world-toolbar">
               <div className="world-identity">
                 <span className="world-icon">
-                  <Icon name="fish" />
+                  <Icon name={isParty ? "pencil" : "fish"} />
                 </span>
                 <div>
-                  <h2>{current?.name || "Your first little world"}</h2>
+                  <h2>{current?.name || "Your next great party idea"}</h2>
                   <span className="world-subtitle">
                     {current
                       ? themes[current.theme].name
-                      : "Choose a world. Invite your imagination."}
+                      : "Create a room. Invite the usual suspects."}
                   </span>
                 </div>
               </div>
@@ -261,7 +267,7 @@ export function Owner({ session }: { session: Session }) {
                 {current && (
                   <Button
                     intent="ghost"
-                    aria-label="Edit world"
+                    aria-label="Edit room"
                     onClick={() => {
                       setError("");
                       setModal("edit");
@@ -294,12 +300,37 @@ export function Owner({ session }: { session: Session }) {
             </div>
             {snapshot.loading && current && !snapshot.data ? (
               <Loading />
+            ) : isParty ? (
+              <PartyStage
+                snapshot={snapshot.data}
+                preview={!current}
+                paused={paused}
+              />
             ) : (
               <WorldStage
                 snapshot={snapshot.data}
                 theme={current?.theme}
                 preview={!current}
                 paused={paused}
+              />
+            )}
+            {isParty && snapshot.data && (
+              <PartyControls
+                snapshot={snapshot.data}
+                stale={Boolean(snapshot.error) || snapshot.loading}
+                onRefresh={snapshot.refresh}
+                onUpdate={(next) =>
+                  snapshot.setData((old) =>
+                    old?.world.id === next.world.id
+                      ? old.party?.activeCharacterId ===
+                          next.party?.activeCharacterId &&
+                        old.party?.revealed &&
+                        !next.party?.revealed
+                        ? old
+                        : next
+                      : old,
+                  )
+                }
               />
             )}
             <div className="stage-footer">
@@ -309,9 +340,9 @@ export function Owner({ session }: { session: Session }) {
                 <i />
                 {current
                   ? current.uploadsOpen
-                    ? "Ready for new drawings"
+                    ? "Guests can add drawings"
                     : "Uploads paused"
-                  : "An empty world. Endless possibilities."}
+                  : "Your next party starts with a pen."}
               </span>
               <span className="made-with">
                 Made with <strong>Higgsfield API</strong>
@@ -327,11 +358,11 @@ export function Owner({ session }: { session: Session }) {
           </section>
           <aside className="join-panel">
             <span className="paper-pin" />
-            <span className="eyebrow">A LITTLE DRAWING. A BIG ENTRANCE.</span>
+            <span className="eyebrow">INVITE THE WHOLE ROOM</span>
             <h2>
-              Draw it.
+              Everyone’s an artist.
               <br />
-              Bring it to life.
+              Allegedly.
             </h2>
             <div className="join-doodle">
               <Icon name="pencil" size={32} />
@@ -339,14 +370,15 @@ export function Owner({ session }: { session: Session }) {
               <Icon name="spark" size={31} />
             </div>
             <p>
-              A fish with wings? A friendly dinosaur? There’s room for every
-              imagination.
+              {isParty
+                ? "Scan the code. Draw someone at the party. No names on the paper—keep us guessing."
+                : "Scan the code and send a drawing from your phone. Everyone can join."}
             </p>
             {join ? (
               <>
                 <div className="invite-qr">
                   <QR value={join} />
-                  <span>Scan. Snap. See it come alive.</span>
+                  <span>No account. Just a little audacity.</span>
                 </div>
                 <a
                   className="button button-primary"
@@ -369,13 +401,13 @@ export function Owner({ session }: { session: Session }) {
                 <div className="empty-invitation">
                   <span className="sketch-arrow">↙</span>
                   <span>
-                    A home for your
+                    Best played with
                     <br />
-                    one-of-a-kind creatures
+                    people you know.
                   </span>
                 </div>
                 <Button intent="primary" onClick={() => setModal("create")}>
-                  Create your first world
+                  Create a party
                   <Icon name="arrow" />
                 </Button>
               </>
@@ -387,11 +419,11 @@ export function Owner({ session }: { session: Session }) {
         <div className="below-stage">
           <section className="world-shelf" aria-labelledby="worlds-heading">
             <div className="section-heading">
-              <h2 id="worlds-heading">Your worlds</h2>
-              <span>Little places with a life of their own</span>
+              <h2 id="worlds-heading">Your rooms</h2>
+              <span>Pick up where the party left off.</span>
             </div>
             {list.loading ? (
-              <Loading label="Finding your worlds…" />
+              <Loading label="Finding your rooms…" />
             ) : list.error ? (
               <Notice error>
                 {list.error}
@@ -427,22 +459,22 @@ export function Owner({ session }: { session: Session }) {
               </div>
             ) : (
               <p className="empty-list">
-                Your worlds will live here. Start with an ocean, a valley, or a
-                whole universe.
+                Your parties live here. Make one, put it on the big screen, and
+                pass around some paper.
               </p>
             )}
           </section>
           <div className="how-it-works">
-            <span className="eyebrow">FROM YOUR HANDS TO THEIR WORLD</span>
+            <span className="eyebrow">HOW TO GET THE ROOM TALKING</span>
             <ol>
               <li>
-                <span>1</span>Draw something wonderful.
+                <span>1</span>Draw someone at this party.
               </li>
               <li>
-                <span>2</span>Snap a photo. Choose its style.
+                <span>2</span>Upload it. Keep the answer secret.
               </li>
               <li>
-                <span>3</span>Watch it join the others.
+                <span>3</span>Guess together. Host reveals.
               </li>
             </ol>
           </div>
@@ -450,8 +482,8 @@ export function Owner({ session }: { session: Session }) {
         {current && (
           <section className="residents">
             <div className="section-heading">
-              <h2>Little residents</h2>
-              <span>Every new arrival joins the world.</span>
+              <h2>{isParty ? "The portrait queue" : "Your drawings"}</h2>
+              <span>Ready drawings stay here until you remove them.</span>
             </div>
             {snapshot.data?.characters.length ? (
               <ul className="resident-list">
@@ -463,14 +495,12 @@ export function Owner({ session }: { session: Session }) {
                     <span>
                       <strong>{c.name}</strong>
                       <small>
-                        {c.appearance === "handmade"
-                          ? "Original drawing style"
-                          : "Polished character"}
+                        {c.appearance === "handmade" ? "Handmade" : "Polished"}
                       </small>
                     </span>
                     <Button
                       intent="ghost"
-                      aria-label={`Remove ${c.name}`}
+                      aria-label={`Remove drawing: ${c.name}`}
                       onClick={() => {
                         setError("");
                         setModal(c);
@@ -482,9 +512,7 @@ export function Owner({ session }: { session: Session }) {
                 ))}
               </ul>
             ) : (
-              <p className="empty-list">
-                The first drawing gets to choose the best spot.
-              </p>
+              <p className="empty-list">Waiting for the first brave artist.</p>
             )}
             {snapshot.data?.jobs
               .filter((j) => j.status !== "completed")
@@ -499,10 +527,10 @@ export function Owner({ session }: { session: Session }) {
                     {j.status === "uncertain"
                       ? "Needs host review"
                       : j.status === "failed"
-                        ? "Could not create character"
+                        ? "Needs another try"
                         : j.status === "queued"
-                          ? "Waiting to come alive"
-                          : "Coming to life…"}
+                          ? "Waiting to be prepared"
+                          : "Preparing portrait…"}
                   </span>
                   {j.status === "uncertain" && (
                     <Button
@@ -538,8 +566,7 @@ export function Owner({ session }: { session: Session }) {
                 Replace invitation link
               </Button>
               <p>
-                Existing residents stay when you pause uploads or change the
-                world.
+                Pausing uploads keeps the current round and existing drawings.
               </p>
             </div>
           </section>
@@ -573,8 +600,8 @@ export function Owner({ session }: { session: Session }) {
         {connectionError && <Notice error>{connectionError}</Notice>}
       </main>
       <footer className="site-footer">
-        <span>A little imagination goes a long way.</span>
-        <span>Drawing Worlds · Powered by Higgsfield API</span>
+        <span>Good company. Questionable portraits.</span>
+        <span>Draw the room · Powered by Higgsfield API</span>
       </footer>
       {(modal === "create" || modal === "edit") && (
         <WorldForm
@@ -593,8 +620,11 @@ export function Owner({ session }: { session: Session }) {
               worlds: [...(old?.worlds || []), created],
             }));
             setSelected(created.id);
+            list.refresh();
             setModal(null);
-            setNotice(`${created.name} is ready for its first drawing.`);
+            setNotice(
+              `${created.name} is ready. Open the display and invite your guests.`,
+            );
           }}
         />
       )}
@@ -645,7 +675,11 @@ export function Owner({ session }: { session: Session }) {
       {modal && typeof modal === "object" && !("kind" in modal) && (
         <Dialog
           title={`Remove ${modal.name}?`}
-          description="This character will leave this world permanently. The other characters will stay. This cannot be undone."
+          description={
+            isParty && snapshot.data?.party?.activeCharacterId === modal.id
+              ? "This drawing will be removed permanently, and the next available drawing will move onto the screen. Its secret answer will stay hidden. This cannot be undone."
+              : "This drawing will be removed permanently. All other drawings stay. This cannot be undone."
+          }
           onClose={() => setModal(null)}
           busy={busy}
         >
@@ -677,14 +711,14 @@ function WorldForm({
   onSave: (name: string, theme: Theme) => Promise<void>;
 }) {
   const [name, setName] = useState(world?.name || "");
-  const [theme, setTheme] = useState<Theme>(world?.theme || "aquarium");
+  const [theme, setTheme] = useState<Theme>(world?.theme || "party");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [invalid, setInvalid] = useState(false);
   const [discard, setDiscard] = useState(false);
   const nameRef = useRef<HTMLInputElement>(null);
   const dirty =
-    name !== (world?.name || "") || theme !== (world?.theme || "aquarium");
+    name !== (world?.name || "") || theme !== (world?.theme || "party");
   useUnsaved(dirty && !busy);
   async function save(event: FormEvent) {
     event.preventDefault();
@@ -714,8 +748,8 @@ function WorldForm({
         discard
           ? "Leave these changes?"
           : world
-            ? "Make it your world"
-            : "A new world is waiting"
+            ? "Room settings"
+            : "Start something worth guessing"
       }
       onClose={() => (dirty ? setDiscard(true) : onClose())}
       busy={busy}
@@ -735,7 +769,7 @@ function WorldForm({
       ) : (
         <form noValidate onSubmit={save}>
           <label className="field-label" htmlFor="world-name">
-            World name
+            Room name
           </label>
           <input
             ref={nameRef}
@@ -747,13 +781,13 @@ function WorldForm({
               setName(e.target.value);
               setInvalid(false);
             }}
-            placeholder="e.g. The wonderfully weird ocean"
+            placeholder="e.g. Friday, questionable decisions"
             aria-invalid={invalid}
             aria-describedby={invalid ? "world-name-error" : undefined}
           />
           {invalid && (
             <span id="world-name-error" className="field-error">
-              Give your world a name.
+              Give your room a name.
             </span>
           )}
           <ThemePicker value={theme} onChange={setTheme} />
@@ -767,7 +801,7 @@ function WorldForm({
               Cancel
             </Button>
             <Button type="submit" intent="primary" busy={busy}>
-              {world ? "Save changes" : "Create world"}
+              {world ? "Save changes" : "Create room"}
               <Icon name="arrow" />
             </Button>
           </div>

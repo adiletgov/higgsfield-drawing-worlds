@@ -8,11 +8,13 @@ export function CharacterImage({
   worldId,
   token,
   className = "",
+  label,
 }: {
   character: Character;
   worldId: string;
   token?: string;
   className?: string;
+  label?: string;
 }) {
   const [url, setUrl] = useState("");
   const [failed, setFailed] = useState(false);
@@ -57,22 +59,22 @@ export function CharacterImage({
       <button
         className="character-unavailable"
         onClick={() => setAttempt((n) => n + 1)}
-        aria-label={`Reload image for ${character.name}`}
+        aria-label={`Reload image for ${label || character.name}`}
       >
-        ↻<span>{character.name}</span>
+        ↻<span>{label || character.name}</span>
       </button>
     );
   return url ? (
     <img
       src={url}
-      alt={character.name}
+      alt={label || character.name}
       className={className}
       draggable="false"
     />
   ) : (
     <span
       className="character-loading"
-      aria-label={`Loading ${character.name}`}
+      aria-label={`Loading ${label || character.name}`}
     />
   );
 }

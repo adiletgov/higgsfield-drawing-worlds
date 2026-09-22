@@ -1,4 +1,11 @@
-import { useEffect, useRef, useState } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type Dispatch,
+  type SetStateAction,
+} from "react";
+import { createPublicationGate } from "./resource-publication";
 export class ApiError extends Error {
   status: number;
   constructor(message: string, status: number) {
@@ -53,15 +60,26 @@ export function useResource<T>(
   token?: string,
   interval = 0,
 ) {
-  const [data, setData] = useState<T>();
+  const [data, commitData] = useState<T>();
+  const publication = useRef(createPublicationGate());
+  const setData: Dispatch<SetStateAction<T | undefined>> = (value) => {
+    publication.current.invalidate();
+    commitData(value);
+    setLoading(false);
+    setError("");
+  };
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [revision, setRevision] = useState(0);
   const resourceIdentity = useRef("");
-  const refresh = () => setRevision((r) => r + 1);
+  const refresh = () => {
+    publication.current.invalidate();
+    setRevision((r) => r + 1);
+  };
   useEffect(() => {
     if (!path) {
-      setData(undefined);
+      publication.current.invalidate();
+      commitData(undefined);
       setLoading(false);
       return;
     }
@@ -72,30 +90,34 @@ export function useResource<T>(
     setLoading(true);
     const identity = `${path}:${token || ""}`;
     if (resourceIdentity.current !== identity) {
-      setData(undefined);
+      publication.current.invalidate();
+      commitData(undefined);
       setError("");
       resourceIdentity.current = identity;
     }
     async function read() {
+      const publish = publication.current.begin();
       try {
         const value = await api<T>(path!, { signal: controller.signal }, token);
-        if (!stopped) {
-          setData(value);
-          setError("");
-          failures = 0;
-        }
+        if (!stopped)
+          publish(() => {
+            commitData(value);
+            setError("");
+            failures = 0;
+          });
       } catch (err) {
-        if (!stopped) {
-          setError(
-            err instanceof Error ? err.message : "Could not load this world.",
-          );
-          failures++;
-          if (err instanceof ApiError && [401, 403, 404].includes(err.status))
-            failures = 6;
-        }
+        if (!stopped)
+          publish(() => {
+            setError(
+              err instanceof Error ? err.message : "Could not load this world.",
+            );
+            failures++;
+            if (err instanceof ApiError && [401, 403, 404].includes(err.status))
+              failures = 6;
+          });
       } finally {
         if (!stopped) {
-          setLoading(false);
+          publish(() => setLoading(false));
           if (interval && failures < 6)
             timer = setTimeout(read, Math.min(interval * 2 ** failures, 30000));
         }
@@ -105,7 +127,7 @@ export function useResource<T>(
       if (document.visibilityState === "visible" && !stopped) {
         clearTimeout(timer);
         controller.abort();
-        setRevision((r) => r + 1);
+        refresh();
       }
     };
     void read();
@@ -140,7 +162,7 @@ export function useFragmentToken(kind: string, id: string) {
 }
 export function usePageTitle(title: string) {
   useEffect(() => {
-    document.title = `${title} · Drawing Worlds`;
+    document.title = `${title} · Draw the room`;
   }, [title]);
 }
 export function useUnsaved(dirty: boolean) {

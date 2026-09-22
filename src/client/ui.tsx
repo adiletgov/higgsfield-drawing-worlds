@@ -11,6 +11,11 @@ export const themes: Record<
   Theme,
   { name: string; description: string; sample: string }
 > = {
+  party: {
+    name: "Portrait party",
+    description: "Draw someone. Guess everyone.",
+    sample: "portrait",
+  },
   aquarium: {
     name: "Aquarium",
     description: "An ocean of imagination",
@@ -122,10 +127,13 @@ export function Brand() {
   return (
     <a href="/" className="brand">
       <span className="brand-mark">
-        <Icon name="spark" size={25} />
+        <Icon name="pencil" size={23} />
       </span>
       <span>
-        drawing<span className="brand-lower">worlds</span>
+        draw the
+        <span className="brand-lower">
+          room<span className="brand-dot">.</span>
+        </span>
       </span>
     </a>
   );
@@ -146,7 +154,7 @@ export function Notice({
     </div>
   );
 }
-export function Loading({ label = "Opening your world…" }: { label?: string }) {
+export function Loading({ label = "Opening your room…" }: { label?: string }) {
   return (
     <div className="loading-region" role="status">
       <span className="spinner" />
@@ -163,7 +171,7 @@ export function ThemePicker({
 }) {
   return (
     <fieldset className="theme-field">
-      <legend>Choose a world</legend>
+      <legend>Choose a setting</legend>
       <div className="theme-options">
         {(Object.keys(themes) as Theme[]).map((theme) => (
           <label

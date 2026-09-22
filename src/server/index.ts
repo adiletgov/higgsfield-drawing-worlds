@@ -4,6 +4,7 @@ import { initialize, type WorldRow, type JobRow } from "./database";
 import { advanceJob } from "./jobs";
 import { checkProviderConnection } from "./provider";
 import { validateUpload } from "./images";
+import { changeParty, partyState, prepareParty } from "./party";
 import {
   HttpError,
   bearer,
@@ -15,8 +16,11 @@ import {
   securityHeaders,
   token,
 } from "./security";
-const themes = ["aquarium", "dinosaur", "space"];
+const themes = ["aquarium", "dinosaur", "space", "party"];
 const appearances = ["handmade", "polished"];
+type VisibleJobRow = JobRow & { party_revealed: number | null };
+const jobSelection =
+  "SELECT j.*, p.revealed AS party_revealed FROM jobs j LEFT JOIN party_entries p ON p.job_id=j.id AND p.world_id=j.world_id";
 function json(value: unknown, status = 200) {
   return Response.json(value, {
     status,
@@ -34,10 +38,10 @@ function worldView(w: WorldRow, owner = false): World {
     ...(owner ? { displayToken: w.display_token } : {}),
   };
 }
-function jobView(j: JobRow): Job {
+function jobView(j: JobRow, hidden = false): Job {
   return {
     id: j.id,
-    name: j.name,
+    name: hidden ? "Mystery guest" : j.name,
     status: j.status as Job["status"],
     message: j.message ?? undefined,
     createdAt: j.created_at,
@@ -169,6 +173,31 @@ async function api(request: Request, env: Env, ctx: ExecutionContext) {
       403,
       "This link has expired or is incomplete. Ask the owner for a new link.",
     );
+  if (world.theme === "party") await prepareParty(env.DB, world.id);
+  // Fetch each answer's visibility in the same query as its response row.
+  const hidden = (revealed: number | null) =>
+    revealed === 0 || (world.theme === "party" && revealed !== 1);
+  const viewJob = (job: VisibleJobRow) =>
+    jobView(job, hidden(job.party_revealed));
+  if (
+    parts[3] === "party" &&
+    parts.length === 4 &&
+    request.method === "PATCH"
+  ) {
+    requireOwner(request, env);
+    if (world.theme !== "party")
+      throw new HttpError(400, "Choose a party world to play rounds.");
+    const data = await body(request);
+    if (
+      (data.action !== "reveal" && data.action !== "next") ||
+      typeof data.activeCharacterId !== "string" ||
+      !/^[a-f0-9-]{36}$/i.test(data.activeCharacterId)
+    )
+      throw new HttpError(400, "Choose an action for the current drawing.");
+    return json(
+      await changeParty(env.DB, world.id, data.action, data.activeCharacterId),
+    );
+  }
   if (parts.length === 3) {
     if (request.method === "PATCH") {
       requireOwner(request, env);
@@ -196,6 +225,7 @@ async function api(request: Request, env: Env, ctx: ExecutionContext) {
           world.id,
         )
         .run();
+      if (world.theme === "party") await prepareParty(env.DB, world.id);
       return json(worldView(world, true));
     }
     if (request.method !== "GET")
@@ -211,7 +241,7 @@ async function api(request: Request, env: Env, ctx: ExecutionContext) {
       ).then(() => {}),
     );
     const characters = await env.DB.prepare(
-      "SELECT id,name,appearance,created_at FROM characters WHERE world_id=? ORDER BY created_at",
+      "SELECT c.id,c.name,c.appearance,c.created_at,p.revealed AS party_revealed FROM characters c LEFT JOIN party_entries p ON p.job_id=c.id AND p.world_id=c.world_id WHERE c.world_id=? ORDER BY c.created_at,c.id",
     )
       .bind(world.id)
       .all<{
@@ -219,22 +249,26 @@ async function api(request: Request, env: Env, ctx: ExecutionContext) {
         name: string;
         appearance: string;
         created_at: string;
+        party_revealed: number | null;
       }>();
     const jobs = await env.DB.prepare(
-      "SELECT * FROM jobs WHERE world_id=? AND status != 'completed' ORDER BY created_at DESC",
+      `${jobSelection} WHERE j.world_id=? AND j.status != 'completed' ORDER BY j.created_at DESC`,
     )
       .bind(world.id)
-      .all<JobRow>();
+      .all<VisibleJobRow>();
     return json({
       world: worldView(world, owner),
       characters: characters.results.map((c) => ({
         id: c.id,
-        name: c.name,
+        name: hidden(c.party_revealed) ? "Mystery guest" : c.name,
         appearance: c.appearance,
         createdAt: c.created_at,
         assetUrl: `/api/worlds/${world.id}/assets/${c.id}`,
       })),
-      jobs: jobs.results.map(jobView),
+      jobs: jobs.results.map(viewJob),
+      ...(world.theme === "party"
+        ? { party: await partyState(env.DB, world.id) }
+        : {}),
     });
   }
   if (parts[3] === "jobs") {
@@ -244,10 +278,10 @@ async function api(request: Request, env: Env, ctx: ExecutionContext) {
       if (data.resolveUncertain !== true)
         throw new HttpError(400, "Confirm that you reviewed this upload.");
       const row = await env.DB.prepare(
-        "SELECT * FROM jobs WHERE id=? AND world_id=?",
+        `${jobSelection} WHERE j.id=? AND j.world_id=?`,
       )
         .bind(parts[4], world.id)
-        .first<JobRow>();
+        .first<VisibleJobRow>();
       if (!row) throw new HttpError(404, "This upload could not be found.");
       if (row.status !== "uncertain")
         throw new HttpError(
@@ -264,10 +298,10 @@ async function api(request: Request, env: Env, ctx: ExecutionContext) {
         )
         .run();
       await env.MEDIA.delete(row.input_key);
-      const updated = await env.DB.prepare("SELECT * FROM jobs WHERE id=?")
+      const updated = await env.DB.prepare(`${jobSelection} WHERE j.id=?`)
         .bind(row.id)
-        .first<JobRow>();
-      return json(jobView(updated!));
+        .first<VisibleJobRow>();
+      return json(viewJob(updated!));
     }
     if (
       parts.length === 6 &&
@@ -275,24 +309,24 @@ async function api(request: Request, env: Env, ctx: ExecutionContext) {
       request.method === "GET"
     ) {
       const row = await env.DB.prepare(
-        "SELECT * FROM jobs WHERE request_key=? AND world_id=?",
+        `${jobSelection} WHERE j.request_key=? AND j.world_id=?`,
       )
         .bind(parts[5], world.id)
-        .first<JobRow>();
+        .first<VisibleJobRow>();
       if (!row)
         throw new HttpError(404, "This drawing has not been received yet.");
       ctx.waitUntil(advanceJob(env, row.id, world, demo));
-      return json(jobView(row));
+      return json(viewJob(row));
     }
     if (parts.length === 5 && request.method === "GET") {
       const row = await env.DB.prepare(
-        "SELECT * FROM jobs WHERE id=? AND world_id=?",
+        `${jobSelection} WHERE j.id=? AND j.world_id=?`,
       )
         .bind(parts[4], world.id)
-        .first<JobRow>();
+        .first<VisibleJobRow>();
       if (!row) throw new HttpError(404, "This drawing could not be found.");
       ctx.waitUntil(advanceJob(env, row.id, world, demo));
-      return json(jobView(row));
+      return json(viewJob(row));
     }
     if (parts.length === 4 && request.method === "POST") {
       if (!owner && !guest)
@@ -307,11 +341,11 @@ async function api(request: Request, env: Env, ctx: ExecutionContext) {
           "Please refresh the upload page and try again.",
         );
       const existing = await env.DB.prepare(
-        "SELECT * FROM jobs WHERE world_id=? AND request_key=?",
+        `${jobSelection} WHERE j.world_id=? AND j.request_key=?`,
       )
         .bind(world.id, data.requestId)
-        .first<JobRow>();
-      if (existing) return json(jobView(existing));
+        .first<VisibleJobRow>();
+      if (existing) return json(viewJob(existing));
       if (!world.uploads_open)
         throw new HttpError(
           403,
@@ -324,6 +358,11 @@ async function api(request: Request, env: Env, ctx: ExecutionContext) {
         );
       if (!appearances.includes(String(data.appearance)))
         throw new HttpError(400, "Choose handmade or polished.");
+      if (world.theme === "party" && typeof data.name !== "string")
+        throw new HttpError(
+          400,
+          "Enter the name to reveal after everyone guesses.",
+        );
       const characterName = name(data.name, "New friend"),
         image = validateUpload(data.image),
         id = crypto.randomUUID(),
@@ -334,10 +373,10 @@ async function api(request: Request, env: Env, ctx: ExecutionContext) {
       });
       let insert: D1Result;
       try {
-        insert = await env.DB.prepare(
-          "INSERT OR IGNORE INTO jobs (id,world_id,request_key,name,appearance,status,input_key,created_at,updated_at) VALUES (?,?,?,?,?,'queued',?,?,?)",
-        )
-          .bind(
+        const inserted = await env.DB.batch([
+          env.DB.prepare(
+            "INSERT OR IGNORE INTO jobs (id,world_id,request_key,name,appearance,status,input_key,created_at,updated_at) VALUES (?,?,?,?,?,'queued',?,?,?)",
+          ).bind(
             id,
             world.id,
             data.requestId,
@@ -346,25 +385,29 @@ async function api(request: Request, env: Env, ctx: ExecutionContext) {
             key,
             now,
             now,
-          )
-          .run();
+          ),
+          env.DB.prepare(
+            "INSERT OR IGNORE INTO party_entries(job_id,world_id) SELECT id,world_id FROM jobs WHERE world_id=? AND request_key=? AND (?='party' OR EXISTS(SELECT 1 FROM worlds WHERE id=? AND theme='party'))",
+          ).bind(world.id, data.requestId, world.theme, world.id),
+        ]);
+        insert = inserted[0];
       } catch (error) {
         await env.MEDIA.delete(key);
         throw error;
       }
       if (insert.meta.changes !== 1) await env.MEDIA.delete(key);
       const row = await env.DB.prepare(
-        "SELECT * FROM jobs WHERE world_id=? AND request_key=?",
+        `${jobSelection} WHERE j.world_id=? AND j.request_key=?`,
       )
         .bind(world.id, data.requestId)
-        .first<JobRow>();
+        .first<VisibleJobRow>();
       if (!row)
         throw new HttpError(
           503,
           "The drawing could not be saved. Please try again.",
         );
       ctx.waitUntil(advanceJob(env, row.id, world, demo));
-      return json(jobView(row), 202);
+      return json(viewJob(row), 202);
     }
   }
   if (

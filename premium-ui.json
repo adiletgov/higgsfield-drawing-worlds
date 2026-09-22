@@ -9,7 +9,7 @@
   "commands": {
     "typecheck": "npm run typecheck",
     "unit": "npm test",
-    "client": "node --test src/client/logic.check.mjs",
+    "client": "node --test src/client/logic.check.mjs src/client/party.check.mjs",
     "build": "npm run build",
     "format": "npm run format:check"
   },

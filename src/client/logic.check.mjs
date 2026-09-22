@@ -33,3 +33,40 @@ test("asset fetch cannot send a bearer credential to a remote origin or another 
   assert.throws(() => safeAssetPath("https://evil.test/asset", "abc"));
   assert.throws(() => safeAssetPath("/api/worlds/xyz/assets/123", "abc"));
 });
+
+// These break if a pre-mutation poll or its error may publish after newer state.
+test("a late pre-reveal poll cannot replace the confirmed revealed portrait", async () => {
+  const { createPublicationGate } = await import("./resource-publication.ts");
+  const gate = createPublicationGate();
+  let displayed = { id: "portrait-a", revealed: false };
+  let releasePoll;
+  const oldPoll = new Promise((resolve) => {
+    releasePoll = resolve;
+  });
+  const publish = gate.begin();
+  const reading = oldPoll.then((value) =>
+    publish(() => {
+      displayed = value;
+    }),
+  );
+  gate.invalidate();
+  displayed = { id: "portrait-a", revealed: true };
+  releasePoll({ id: "portrait-a", revealed: false });
+  await reading;
+  assert.deepEqual(displayed, { id: "portrait-a", revealed: true });
+});
+test("a superseded room read cannot publish an error over the newly opened room", async () => {
+  const { createPublicationGate } = await import("./resource-publication.ts");
+  const gate = createPublicationGate();
+  let error = "";
+  const oldRoom = gate.begin();
+  gate.invalidate();
+  const nextRoom = gate.begin();
+  nextRoom(() => {
+    error = "";
+  });
+  oldRoom(() => {
+    error = "Old room connection failed";
+  });
+  assert.equal(error, "");
+});

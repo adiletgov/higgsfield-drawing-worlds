@@ -18,20 +18,20 @@ const statusCopy: Record<Job["status"], { title: string; body: string }> = {
     body: "We’ve received it. You can keep this page open to see its big entrance.",
   },
   submitting: {
-    title: "A little magic is beginning.",
-    body: "Your drawing is being sent to Higgsfield. Your place in this world is saved.",
+    title: "Handing your drawing to Higgsfield.",
+    body: "Your drawing has been received. Keep this page open while it is prepared.",
   },
   processing: {
-    title: "Finding its feet. Or fins.",
-    body: "Higgsfield is turning your drawing into a character. The other residents are waiting.",
+    title: "Your drawing, with a little extra.",
+    body: "Higgsfield is preparing your drawing for the shared screen.",
   },
   completed: {
-    title: "Hello, little world!",
-    body: "Your character has joined the others. Look up at the shared display to say hello.",
+    title: "You’re in the lineup.",
+    body: "Your drawing is ready. Look up at the shared screen—the host will take it from here.",
   },
   failed: {
     title: "This one needs another try.",
-    body: "Your character could not be created. The world and all its existing residents are safe.",
+    body: "Your drawing could not be prepared. The current round and everyone else’s drawings are safe.",
   },
   uncertain: {
     title: "We’re checking its arrival.",
@@ -42,6 +42,7 @@ export function Join({ id, session }: { id: string; session: Session }) {
   const token = useFragmentToken("join", id);
   const resource = useResource<Snapshot>(`/api/worlds/${id}`, token, 5000);
   const [name, setName] = useState("");
+  const [showAnswer, setShowAnswer] = useState(false);
   const [appearance, setAppearance] = useState<Appearance>("handmade");
   const [photo, setPhoto] = useState("");
   const [fileName, setFileName] = useState("");
@@ -82,6 +83,7 @@ export function Join({ id, session }: { id: string; session: Session }) {
   const chooseVersion = useRef(0);
   const alive = useAlive();
   const world = resource.data?.world;
+  const isParty = !world || world.theme === "party";
   const active = !!jobId || sending || uncertain || recovering;
   usePageTitle(world ? `Add a drawing to ${world.name}` : "Add your drawing");
   useUnsaved(Boolean(photo) && !jobId);
@@ -258,6 +260,7 @@ export function Join({ id, session }: { id: string; session: Session }) {
     setJob(undefined);
     setPhoto("");
     setName("");
+    setShowAnswer(false);
     setFileName("");
     setError("");
     setUncertain(false);
@@ -266,25 +269,65 @@ export function Join({ id, session }: { id: string; session: Session }) {
   }
   const status = job ? statusCopy[job.status] : null;
   return (
-    <div className={`join-page theme-${world?.theme || "aquarium"}`}>
+    <div
+      className={`join-page theme-${world?.theme || "party"} ${isParty ? "party-join" : ""}`}
+    >
       <header className="join-header">
         <Brand />
-        <span className="small-badge">A world is waiting</span>
+        <span className="small-badge">Your phone. Your secret.</span>
       </header>
       <main className="join-main">
         <div className="join-hero">
-          <span className="eyebrow">YOU’RE INVITED TO</span>
-          <h1>{world?.name || "A little world"}</h1>
-          <p>One drawing. A whole new adventure.</p>
-          <div className="join-scene-strip">
-            <img src={`/${world?.theme || "aquarium"}.svg`} alt="" />
-            <img
-              className="join-sample"
-              src={`/sample-${themes[world?.theme || "aquarium"].sample}.svg`}
-              alt="Illustrative sample character"
-            />
-            <span>Illustrative sample</span>
-          </div>
+          <span className="eyebrow">{world?.name || "YOU’RE INVITED"}</span>
+          <h1>
+            {isParty ? (
+              <>
+                Draw someone
+                <br />
+                <span>at this party.</span>
+              </>
+            ) : (
+              "Add your drawing."
+            )}
+          </h1>
+          <p>
+            {isParty
+              ? "The worse the drawing, the better the guessing."
+              : "Your drawing belongs on the shared screen."}
+          </p>
+          {isParty ? (
+            <div className="party-guest-instructions">
+              <div className="guest-napkin">
+                <img
+                  src="/sample-portrait.svg"
+                  alt="Illustrative sample caricature"
+                />
+                <span>ILLUSTRATIVE SAMPLE</span>
+              </div>
+              <div>
+                <span className="eyebrow">PICK SOMEONE IN THE ROOM</span>
+                <strong>
+                  Draw the face.
+                  <br />
+                  Keep the secret.
+                </strong>
+                <p>
+                  A pen, a napkin, a generous interpretation. Keep their name
+                  off the drawing.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="join-scene-strip">
+              <img src={`/${world?.theme || "party"}.svg`} alt="" />
+              <img
+                className="join-sample"
+                src={`/sample-${themes[world?.theme || "party"].sample}.svg`}
+                alt="Illustrative sample drawing"
+              />
+              <span>Illustrative sample</span>
+            </div>
+          )}
         </div>
         {session.demo && (
           <Notice>
@@ -313,12 +356,14 @@ export function Join({ id, session }: { id: string; session: Session }) {
               />
             </span>
             <span className="eyebrow">
-              {job?.name || name || "YOUR DRAWING"}
+              {isParty
+                ? "YOUR SECRET IS SAFE"
+                : job?.name || name || "YOUR DRAWING"}
             </span>
             <h2>{status?.title || "Checking your drawing…"}</h2>
             <p>
               {session.demo && job?.status === "processing"
-                ? "Preparing your local preview character. No live AI request is being made."
+                ? "Preparing your local preview drawing. No live AI request is being made."
                 : status?.body ||
                   "Restoring the latest status of your drawing."}
             </p>
@@ -329,10 +374,10 @@ export function Join({ id, session }: { id: string; session: Session }) {
                 <span className="done">Received</span>
                 <i />
                 <span className={job?.status === "processing" ? "done" : ""}>
-                  Coming to life
+                  Preparing
                 </span>
                 <i />
-                <span>In the world</span>
+                <span>Ready to guess</span>
               </div>
             )}
             {statusError && (
@@ -377,10 +422,12 @@ export function Join({ id, session }: { id: string; session: Session }) {
             )}
             <div className="upload-step-label">
               <span>1</span>
-              <h2>Show us your drawing</h2>
+              <h2>Snap your masterpiece</h2>
             </div>
             <p className="field-hint">
-              One character, good light, and as little background as possible.
+              {isParty
+                ? "One person, good light, and the whole drawing in the frame."
+                : "One drawing, good light, and as little background as possible."}
             </p>
             <div
               className={`photo-drop ${dragging ? "drag-over" : ""} ${photo ? "has-photo" : ""}`}
@@ -407,7 +454,7 @@ export function Join({ id, session }: { id: string; session: Session }) {
                     <Icon name="pencil" size={38} />
                     <i>✳</i>
                   </span>
-                  <strong>A masterpiece in the making.</strong>
+                  <strong>An uncanny likeness. Probably.</strong>
                   <span>Take a photo or choose one you’ve saved.</span>
                 </div>
               )}
@@ -444,32 +491,66 @@ export function Join({ id, session }: { id: string; session: Session }) {
             </p>
             <div className="upload-step-label">
               <span>2</span>
-              <h2>Give it a personality</h2>
+              <h2>{isParty ? "Who did you draw?" : "Name your drawing"}</h2>
             </div>
             <label className="field-label" htmlFor="character-name">
-              What’s their name?
+              {isParty ? "Secret answer" : "Drawing name"}
             </label>
-            <input
-              id="character-name"
-              ref={nameInput}
-              value={name}
-              maxLength={50}
-              disabled={active}
-              onChange={(e) => {
-                setName(e.target.value);
-                setInvalid("");
-              }}
-              placeholder="e.g. Captain Bubbles"
-              aria-invalid={invalid === "name"}
-              aria-describedby={invalid === "name" ? "name-error" : undefined}
-            />
+            <div className="secret-answer-field">
+              <input
+                id="character-name"
+                type={isParty && !showAnswer ? "password" : "text"}
+                autoComplete="off"
+                ref={nameInput}
+                value={name}
+                maxLength={50}
+                disabled={active}
+                onChange={(e) => {
+                  setName(e.target.value);
+                  setInvalid("");
+                }}
+                placeholder={
+                  isParty ? "Their name or nickname" : "Give it a name"
+                }
+                aria-invalid={invalid === "name"}
+                aria-describedby={
+                  invalid === "name"
+                    ? "name-error"
+                    : isParty
+                      ? "secret-answer-help"
+                      : undefined
+                }
+              />
+              {isParty && (
+                <Button
+                  type="button"
+                  intent="ghost"
+                  aria-label={
+                    showAnswer ? "Hide secret answer" : "Show secret answer"
+                  }
+                  aria-pressed={showAnswer}
+                  disabled={active}
+                  onClick={() => setShowAnswer((value) => !value)}
+                >
+                  {showAnswer ? "Hide" : "Show"}
+                </Button>
+              )}
+            </div>
+            {isParty && (
+              <p id="secret-answer-help" className="field-hint">
+                Only revealed when the host says so. Don’t write this name on
+                the paper.
+              </p>
+            )}
             {invalid === "name" && (
               <span id="name-error" className="field-error">
-                Give your character a name.
+                {isParty
+                  ? "Enter their name so the host can reveal the answer."
+                  : "Give your drawing a name."}
               </span>
             )}
             <fieldset className="appearance-field" disabled={active}>
-              <legend>How should they look?</legend>
+              <legend>Choose the finish</legend>
               <div className="appearance-options">
                 <label className={appearance === "handmade" ? "selected" : ""}>
                   <input
@@ -480,7 +561,9 @@ export function Join({ id, session }: { id: string; session: Session }) {
                   />
                   <Icon name="pencil" size={25} />
                   <strong>Keep my drawing</strong>
-                  <span>All the charm. Every little line.</span>
+                  <span>
+                    Keep the lines, quirks, and questionable proportions.
+                  </span>
                   <i>
                     <Icon name="check" size={12} />
                   </i>
@@ -493,8 +576,10 @@ export function Join({ id, session }: { id: string; session: Session }) {
                     onChange={() => setAppearance("polished")}
                   />
                   <Icon name="spark" size={25} />
-                  <strong>A little more magic</strong>
-                  <span>A polished character, inspired by you.</span>
+                  <strong>Polish it up</strong>
+                  <span>
+                    A polished caricature, still based on your drawing.
+                  </span>
                   <i>
                     <Icon name="check" size={12} />
                   </i>
@@ -534,7 +619,7 @@ export function Join({ id, session }: { id: string; session: Session }) {
                   (!session.generationReady && !session.demo)
                 }
               >
-                Bring my drawing to life
+                {isParty ? "Add to the guessing queue" : "Add my drawing"}
                 <Icon name="spark" />
               </Button>
             )}
@@ -547,7 +632,7 @@ export function Join({ id, session }: { id: string; session: Session }) {
         )}
       </main>
       <footer className="join-footer">
-        Made by you. Brought to life with <strong>Higgsfield API.</strong>
+        Your art. Their best guess. Powered by <strong>Higgsfield API.</strong>
       </footer>
     </div>
   );

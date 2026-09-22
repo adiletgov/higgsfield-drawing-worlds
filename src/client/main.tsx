@@ -7,19 +7,19 @@ import { Brand, Button, Loading, Notice } from "./ui";
 import { Owner } from "./Owner";
 import { Display } from "./Display";
 import { Join } from "./Join";
-import { WorldStage } from "./WorldStage";
+import { PartyStage } from "./PartyStage";
 import "./styles.css";
 function App() {
   const session = useResource<Session>("/api/session");
   const route = parseRoute(location.pathname);
-  if (session.loading) return <Loading label="Opening Drawing Worlds…" />;
+  if (session.loading) return <Loading label="Opening Draw the room…" />;
   if (session.error || !session.data)
     return (
       <main className="access-state">
         <Brand />
         <h1>Let’s reconnect.</h1>
         <Notice error>
-          {session.error || "Drawing Worlds is temporarily unavailable."}
+          {session.error || "Draw the room is temporarily unavailable."}
         </Notice>
         <Button onClick={session.refresh}>Try again</Button>
       </main>
@@ -31,7 +31,7 @@ function App() {
         <h1>This page wandered off.</h1>
         <p>Use your invitation to find the right world.</p>
         <a className="button button-primary" href="/">
-          Go to host studio
+          Go to host desk
         </a>
       </main>
     );
@@ -43,7 +43,7 @@ function App() {
   return <Owner session={session.data} />;
 }
 function Access({ session }: { session: Session }) {
-  usePageTitle(session.configured ? "Host sign in" : "Set up Drawing Worlds");
+  usePageTitle(session.configured ? "Host sign in" : "Set up Draw the room");
   return (
     <div className="access-layout">
       <header className="app-header">
@@ -51,20 +51,20 @@ function Access({ session }: { session: Session }) {
       </header>
       <main>
         <div className="access-copy">
-          <span className="eyebrow">A HOME FOR EVERY IMAGINATION</span>
+          <span className="eyebrow">GOOD COMPANY. QUESTIONABLE PORTRAITS.</span>
           <h1>
-            Small drawings.
+            Draw someone
             <br />
-            <span>Big worlds.</span>
+            <span>at this party.</span>
           </h1>
           <p>
-            Create a living world, invite your people, and watch their drawings
-            find a home.
+            Everyone draws someone in the room. Their portrait goes on the big
+            screen. You guess, the host reveals. No artistic talent required.
           </p>
           {session.configured ? (
             <>
               <a className="button button-primary" href={session.signInUrl}>
-                Sign in to your studio
+                Sign in to host a party
               </a>
               <small>
                 Guests can join directly with an invitation or QR code.
@@ -72,7 +72,7 @@ function Access({ session }: { session: Session }) {
             </>
           ) : (
             <Notice>
-              <strong>Your studio is almost ready.</strong>
+              <strong>Your host desk is almost ready.</strong>
               <p>
                 The site owner needs to complete secure host sign-in and
                 generation setup on the server. The setup guide is included with
@@ -81,7 +81,7 @@ function Access({ session }: { session: Session }) {
             </Notice>
           )}
         </div>
-        <WorldStage preview />
+        <PartyStage preview />
       </main>
     </div>
   );

@@ -1,19 +1,21 @@
-# Higgsfield Drawing Worlds
+# Draw the room · powered by Higgsfield API
 
-Turn a drawing on paper into an illustrated character in a shared world. Choose an aquarium, dinosaur park, or space scene; upload one character; and watch it join the characters already on screen.
+**Draw someone at this party. Let the room guess who.** Guests draw another person, photograph their drawing, and add a secret answer. Higgsfield API prepares the portrait artwork. It appears on the big screen without the name; the host reveals the answer after everyone has guessed.
 
-This starter is designed to give **each owner a separate app**, with their own saved worlds and Higgsfield API account. A phone opens the upload link while a laptop, monitor, or laptop-connected TV displays the world.
+This starter gives **each owner a separate app**, with their own saved parties and Higgsfield API account. A phone opens the upload link while a laptop, monitor, or laptop-connected TV displays the game.
 
 ## What it does
 
-- Offers handmade and polished character appearances.
-- Uses Higgsfield API to prepare character artwork; the app animates the resulting illustration.
-- Keeps multiple characters together and saves worlds between visits.
+- Starts new worlds in party mode, with handmade or polished portraits.
+- Uses Higgsfield API to prepare the artwork; the template presents the guessing game.
+- Queues drawings automatically, shows one mystery portrait at a time, and saves the round between visits.
+- Keeps names hidden in server responses until the host reveals them. Guests guess aloud; no guest accounts, scoring or voting setup.
 - Provides separate owner, guest-upload, and display views.
-- Lets the owner rename a world, change its theme, remove a character, pause uploads, or replace the guest link.
+- Gives the host **Reveal name** and **Next drawing** controls, plus rename, remove, pause uploads and replace invitation.
+- Preserves aquarium, dinosaur and space worlds alongside the party game.
 - Keeps API credentials on the server, outside the browser and shared links.
 
-These are animated illustrations, not generated 3D models. Use one clearly drawn character on plain paper per upload. Real generation takes processing time; this project makes no instant-generation promise.
+Use one clearly drawn person on plain paper per upload. Keep their name off the drawing and enter it separately in the answer field. The app uses the answer you supply; it does not identify people from images. These are illustrations, not generated 3D models. Real generation takes processing time.
 
 ## Set up your own copy
 
@@ -21,15 +23,21 @@ Start with the [copyable ChatGPT setup prompt](docs/SETUP-PROMPT.md). Attach a d
 
 The intended host is ChatGPT Sites. You will need a Sites-enabled ChatGPT account, a Higgsfield API account, and API credentials entered in your own Site's private settings. See [deployment details](docs/DEPLOYMENT.md).
 
-**Release status:** working prototype; creator pilot pending. This [public GitHub template](https://github.com/adiletgov/higgsfield-drawing-worlds) has a verified Sites deployment and two successful Higgsfield generations, one handmade and one polished, appearing together in a saved world. Tests used original digital illustrations. A separate owner's one-prompt setup, a photo of a paper drawing, and physical phone/TV use remain unverified. See the [validation record](docs/VALIDATION.md) before filming.
+**Release status:** party mode passes local checks; live party deployment and testing are pending. Two demo portraits queued correctly, the host revealed a name and advanced, and the second round stayed anonymous after refresh. A 390px browser preview had no horizontal overflow. Source checks passed: 107 Vitest tests, 9 client checks, typecheck, formatting, and a strict UI audit with zero findings.
 
-## Use the world
+The earlier aquarium prototype completed two real Higgsfield generations from original digital illustrations; that verifies the earlier world flow, not the new party flow. A separate owner's one-prompt setup, a photo of a paper drawing, and physical phone/TV use remain unverified. See the [validation record](docs/VALIDATION.md) before filming.
 
-1. Sign in as the owner and create a world.
+## Play at a party
+
+See the short [host and guest guide](docs/PLAY.md).
+
+1. Sign in as the host and create a party.
 2. Open its display view full-screen on your computer. Connect that computer to the TV or monitor if needed.
 3. Share the upload QR code or guest link with the people you want to invite.
-4. On a phone, upload a drawing, choose its appearance, and submit it.
-5. Keep the world open while it processes. New characters appear alongside the existing ones.
+4. Each guest draws someone in the room, uploads the drawing, and enters that person's first name or nickname as the secret answer.
+5. The first completed portrait appears automatically. Everyone guesses aloud. The host selects **Reveal name**, then **Next drawing**. Later portraits join the queue as they finish.
+
+Keep the host controls on your own device and put the display view on the shared screen. The display and guest links cannot reveal answers. You can remove a drawing when necessary; removing the active drawing moves the game forward. No drawing skill is required—the imperfect portraits are part of the fun.
 
 Guest uploads use the **owner's API account**. There are no application generation-count or spending quotas. The owner controls access through the guest link and the pause-uploads setting. Replacing a shared link is the way to stop that link being used again.
 

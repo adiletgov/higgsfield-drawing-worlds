@@ -1,4 +1,4 @@
-export type Theme = "aquarium" | "dinosaur" | "space";
+export type Theme = "aquarium" | "dinosaur" | "space" | "party";
 export type Appearance = "handmade" | "polished";
 export type JobStatus =
   "queued" | "submitting" | "processing" | "completed" | "failed" | "uncertain";
@@ -29,6 +29,13 @@ export interface Snapshot {
   world: World;
   characters: Character[];
   jobs: Job[];
+  party?: PartyState;
+}
+export interface PartyState {
+  activeCharacterId: string | null;
+  revealed: boolean;
+  round: number;
+  total: number;
 }
 export interface Session {
   owner: boolean;
@@ -44,6 +51,8 @@ export interface Session {
 // POST /api/worlds {name,theme} -> World (owner)
 // PATCH /api/worlds/:id {name?,theme?,uploadsOpen?,rotateGuest?:true} -> World (owner)
 // GET /api/worlds/:id -> Snapshot (owner or Authorization: Bearer display/guest token)
+// PATCH /api/worlds/:id/party {action:'reveal'|'next',activeCharacterId:string} -> PartyState (owner)
+// Party Character.name/Job.name stay "Mystery guest" until that drawing is revealed.
 // POST /api/worlds/:id/jobs {name,appearance,image:PNG data URL,requestId:UUID} -> Job (owner/guest)
 // GET /api/worlds/:id/jobs/:jobId -> Job (owner/guest/display)
 // DELETE /api/worlds/:id/characters/:id -> {ok:true} (owner)

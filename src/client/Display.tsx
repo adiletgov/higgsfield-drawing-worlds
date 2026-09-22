@@ -4,34 +4,41 @@ import { useFragmentToken, usePageTitle, useResource } from "./api";
 import { accessLink } from "./logic";
 import { Button, Icon, Loading, Notice, QR } from "./ui";
 import { WorldStage } from "./WorldStage";
+import { PartyStage } from "./PartyStage";
 export function Display({ id, session }: { id: string; session: Session }) {
   const token = useFragmentToken("world", id);
   const { data, error, loading, refresh } = useResource<Snapshot>(
     `/api/worlds/${id}`,
     token,
-    3000,
+    1000,
   );
   const [paused, setPaused] = useState(false);
   const [fullError, setFullError] = useState("");
-  usePageTitle(data?.world.name || "Living display");
+  usePageTitle(data?.world.name || "Party display");
   const join = data?.world.guestToken
     ? accessLink(location.origin, "join", id, data.world.guestToken)
     : "";
-  if (loading && !data) return <Loading label="Opening the living world…" />;
+  if (loading && !data) return <Loading label="Opening the party screen…" />;
   if (!data)
     return (
       <main className="access-state">
-        <h1>This world isn’t open yet.</h1>
+        <h1>This room isn’t open yet.</h1>
         <Notice error>{error || "Ask the host for a display link."}</Notice>
         <Button onClick={refresh}>Try again</Button>
-        <a href="/">Go to host studio</a>
+        <a href="/">Go to host desk</a>
       </main>
     );
   return (
-    <main className="display-page">
-      <WorldStage snapshot={data} token={token} full paused={paused} />
+    <main
+      className={`display-page ${data.world.theme === "party" ? "party-display" : ""}`}
+    >
+      {data.world.theme === "party" ? (
+        <PartyStage snapshot={data} token={token} full paused={paused} />
+      ) : (
+        <WorldStage snapshot={data} token={token} full paused={paused} />
+      )}
       <header className="display-heading">
-        <span className="eyebrow">DRAWING WORLDS</span>
+        <span className="eyebrow">DRAW THE ROOM</span>
         <h1>{data.world.name}</h1>
         {session.demo && (
           <span className="display-preview">
@@ -65,15 +72,31 @@ export function Display({ id, session }: { id: string; session: Session }) {
         <aside className="display-invite">
           <QR value={join} />
           <div>
-            <span className="eyebrow">MAKE YOUR ENTRANCE</span>
+            <span className="eyebrow">
+              {data.world.theme === "party"
+                ? "GOT SOMEONE IN MIND?"
+                : "ADD YOUR IMAGINATION"}
+            </span>
             <h2>
-              Your drawing
-              <br />
-              belongs here.
+              {data.world.theme === "party" ? (
+                <>
+                  Draw someone
+                  <br />
+                  at this party.
+                </>
+              ) : (
+                <>
+                  Your drawing
+                  <br />
+                  belongs here.
+                </>
+              )}
             </h2>
             <p>
               {data.world.uploadsOpen
-                ? "Scan to add a little life."
+                ? data.world.theme === "party"
+                  ? "Scan. Draw. Keep the name off the paper."
+                  : "Scan to add your drawing."
                 : "The host has paused uploads."}
             </p>
             <a href={join} target="_blank" rel="noreferrer">
@@ -84,7 +107,7 @@ export function Display({ id, session }: { id: string; session: Session }) {
         </aside>
       )}
       <div className="display-wordmark">
-        drawing worlds <span>✳</span>
+        draw the room <span>✳</span>
       </div>
       {(error || fullError) && (
         <div className="display-notice">

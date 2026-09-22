@@ -42,6 +42,9 @@ export function initialize(db: D1Database) {
         db.prepare(
           "CREATE INDEX IF NOT EXISTS characters_world ON characters(world_id)",
         ),
+        db.prepare(
+          "CREATE TABLE IF NOT EXISTS party_entries (job_id TEXT PRIMARY KEY, world_id TEXT NOT NULL REFERENCES worlds(id), round INTEGER, revealed INTEGER NOT NULL DEFAULT 0, advanced INTEGER NOT NULL DEFAULT 0, UNIQUE(world_id, round))",
+        ),
       ]);
     })().catch((e) => {
       initialized.delete(db);
