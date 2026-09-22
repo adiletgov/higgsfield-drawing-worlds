@@ -1,5 +1,12 @@
 import { useState, useRef, type FormEvent } from "react";
-import type { Session, Snapshot, World, Theme, Character } from "../shared";
+import type {
+  Session,
+  Snapshot,
+  World,
+  Theme,
+  Character,
+  Job,
+} from "../shared";
 import { api, usePageTitle, useResource, useUnsaved } from "./api";
 import { accessLink } from "./logic";
 import {
@@ -16,7 +23,13 @@ import {
 } from "./ui";
 import { CharacterImage, WorldStage } from "./WorldStage";
 
-type Modal = "create" | "edit" | "rotate" | Character | null;
+type Modal =
+  | "create"
+  | "edit"
+  | "rotate"
+  | Character
+  | { kind: "resolve"; job: Job }
+  | null;
 export function Owner({ session }: { session: Session }) {
   const list = useResource<{ worlds: World[] }>("/api/worlds");
   const [selected, setSelected] = useState("");
@@ -97,6 +110,42 @@ export function Owner({ session }: { session: Session }) {
     } catch (e) {
       setError(
         e instanceof Error ? e.message : "The character could not be removed.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function resolveUpload(job: Job) {
+    if (!current || busy || job.status !== "uncertain") return;
+    setBusy(true);
+    setError("");
+    try {
+      const reviewed = await api<Job>(
+        `/api/worlds/${current.id}/jobs/${job.id}`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({ resolveUncertain: true }),
+        },
+      );
+      snapshot.setData((old) =>
+        old
+          ? {
+              ...old,
+              jobs: old.jobs.map((item) =>
+                item.id === reviewed.id ? reviewed : item,
+              ),
+            }
+          : old,
+      );
+      setModal(null);
+      setNotice(
+        `${job.name} marked as reviewed. The guest can check its status and choose another drawing. A new upload starts a separate generation.`,
+      );
+    } catch (e) {
+      setError(
+        e instanceof Error
+          ? e.message
+          : "This upload could not be marked as reviewed. Try again.",
       );
     } finally {
       setBusy(false);
@@ -408,7 +457,11 @@ export function Owner({ session }: { session: Session }) {
             {snapshot.data?.jobs
               .filter((j) => j.status !== "completed")
               .map((j) => (
-                <div className="job-row" key={j.id}>
+                <div
+                  className="job-row"
+                  key={j.id}
+                  style={{ flexWrap: "wrap", alignItems: "center" }}
+                >
                   <span>{j.name}</span>
                   <span>
                     {j.status === "uncertain"
@@ -419,6 +472,18 @@ export function Owner({ session }: { session: Session }) {
                           ? "Waiting to come alive"
                           : "Coming to life…"}
                   </span>
+                  {j.status === "uncertain" && (
+                    <Button
+                      aria-label={`Resolve upload for ${j.name}`}
+                      disabled={busy}
+                      onClick={() => {
+                        setError("");
+                        setModal({ kind: "resolve", job: j });
+                      }}
+                    >
+                      Resolve upload
+                    </Button>
+                  )}
                 </div>
               ))}
             <div className="world-controls">
@@ -496,7 +561,29 @@ export function Owner({ session }: { session: Session }) {
           </div>
         </Dialog>
       )}
-      {modal && typeof modal === "object" && (
+      {modal && typeof modal === "object" && "kind" in modal && (
+        <Dialog
+          title={`Resolve ${modal.job.name}?`}
+          description="Check this request in your Higgsfield API activity before continuing. Marking it as reviewed closes this app’s tracking so the guest can choose another drawing. It does not cancel the provider job or issue a refund. Any new upload starts another paid generation."
+          onClose={() => setModal(null)}
+          busy={busy}
+        >
+          {error && <Notice error>{error}</Notice>}
+          <div className="dialog-actions">
+            <Button data-cancel onClick={() => setModal(null)} disabled={busy}>
+              Keep checking
+            </Button>
+            <Button
+              intent="primary"
+              busy={busy}
+              onClick={() => void resolveUpload(modal.job)}
+            >
+              Mark as reviewed
+            </Button>
+          </div>
+        </Dialog>
+      )}
+      {modal && typeof modal === "object" && !("kind" in modal) && (
         <Dialog
           title={`Remove ${modal.name}?`}
           description="This character will leave this world permanently. The other characters will stay. This cannot be undone."

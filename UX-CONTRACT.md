@@ -39,15 +39,16 @@ Initial loading has an app-owned spinner with stable space. Refresh keeps the la
 
 ## Flow ledger
 
-| Operation          | Pending                                     | Success                                                  | Failure recovery                                             | Source                       |
-| ------------------ | ------------------------------------------- | -------------------------------------------------------- | ------------------------------------------------------------ | ---------------------------- |
-| Create world       | stable busy button                          | close form, select new world, persistent acknowledgement | keep entered name/theme and inline error                     | POST worlds, shared.ts       |
-| Save changes       | stable busy button                          | close form, retain current world, announce saved         | keep form and values open                                    | PATCH world, shared.ts       |
-| Pause/open uploads | disable mutation controls                   | server-confirmed label/status                            | keep last known setting and error                            | PATCH world, shared.ts       |
-| Replace invitation | safe-focused app dialog                     | update QR/link, existing residents remain                | keep confirmation open and allow retry                       | PATCH rotateGuest, shared.ts |
-| Remove character   | safe-focused app dialog, wait for server    | remove only confirmed character                          | retain character and confirmation with retry                 | DELETE character, shared.ts  |
-| Add drawing        | prepare photo, create job, show real status | completed character joins existing world                 | retain input; explicit network retry reuses request identity | jobs endpoints, shared.ts    |
-| Cancel edit        | check dirty state                           | safe focus restoration                                   | discard confirmation or keep editing                         | local form behavior          |
+| Operation                | Pending                                           | Success                                                                           | Failure recovery                                             | Source                                      |
+| ------------------------ | ------------------------------------------------- | --------------------------------------------------------------------------------- | ------------------------------------------------------------ | ------------------------------------------- |
+| Create world             | stable busy button                                | close form, select new world, persistent acknowledgement                          | keep entered name/theme and inline error                     | POST worlds, shared.ts                      |
+| Save changes             | stable busy button                                | close form, retain current world, announce saved                                  | keep form and values open                                    | PATCH world, shared.ts                      |
+| Pause/open uploads       | disable mutation controls                         | server-confirmed label/status                                                     | keep last known setting and error                            | PATCH world, shared.ts                      |
+| Replace invitation       | safe-focused app dialog                           | update QR/link, existing residents remain                                         | keep confirmation open and allow retry                       | PATCH rotateGuest, shared.ts                |
+| Remove character         | safe-focused app dialog, wait for server          | remove only confirmed character                                                   | retain character and confirmation with retry                 | DELETE character, shared.ts                 |
+| Add drawing              | prepare photo, create job, show real status       | completed character joins existing world                                          | retain input; explicit network retry reuses request identity | jobs endpoints, shared.ts                   |
+| Resolve uncertain upload | safe-focused review confirmation, wait for server | mark reviewed upload as failed; guest can check status and choose another drawing | retain uncertain state and keep confirmation open with retry | owner PATCH job resolveUncertain, shared.ts |
+| Cancel edit              | check dirty state                                 | safe focus restoration                                                            | discard confirmation or keep editing                         | local form behavior                         |
 
 ## Overlays and feedback
 
@@ -62,6 +63,8 @@ Mutations are pessimistic. Uploads use a UUID request identity reused for uncert
 Requests time out after 25 seconds, polling uses cancellation and finite exponential recovery after failure, and explicit retry remains available. Visibility return and online events revalidate snapshots. Unchanged character image URLs retain their blob and animation identity. Asset fetch validates a same-world API path before attaching Authorization. Images revoke object URLs on replacement/unmount. Character loading errors offer a local reload control.
 
 A 401/403 stops automatic snapshot retry and explains that the invitation needs renewal; the server remains the permission authority. Last good snapshots stay visible on transient errors. Unknown paid results are labeled uncertain and require status checking/host review before a new submission. Progress is staged, never an invented percentage. This client does not offer optimistic billing, offline paid queuing, force overwrite, or a fictitious cancel of an already accepted provider job.
+
+For an uncertain upload, the host can choose **Resolve upload** and then **Mark as reviewed** only after checking the request in Higgsfield API activity. The confirmation explicitly explains that closing app tracking neither cancels the provider job nor issues a refund, and a new upload starts another paid generation. The app sends the owner-only resolution request and updates the row only after acknowledgement. It never resubmits automatically. The guest’s existing **Check status again** action observes the reviewed failed state and makes **Choose another drawing** available; that explicit reset permits a new request identity.
 
 ## Validation
 

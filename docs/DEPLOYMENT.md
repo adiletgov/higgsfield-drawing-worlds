@@ -2,7 +2,7 @@
 
 ## Supported target and current status
 
-ChatGPT Sites is the intended managed host. The [official Sites guide](https://learn.chatgpt.com/docs/sites) documents compatible existing projects, D1 and R2 storage, Site settings for runtime secrets, and optional Sign in with ChatGPT. The repository's complete first-time Sites deployment has not yet been verified. A successful local build is not proof of a working hosted copy.
+ChatGPT Sites is the intended managed host. The [official Sites guide](https://learn.chatgpt.com/docs/sites) documents compatible existing projects, D1 and R2 storage, Site settings for runtime secrets, and optional Sign in with ChatGPT. The reference deployment was accepted and published on September 22, 2026. Hosted sign-in, live generation and setup by a separate owner still need acceptance checks.
 
 No repository owner or hosted project identifier belongs in this public starter. Create a fresh Site for each person. Preserve and reuse that person's returned project ID for later updates.
 
@@ -49,7 +49,9 @@ dist/
   client/assets/...
 ```
 
-Its Worker serves static files through `env.ASSETS.fetch(request)`. Our build independently bundles the Worker and frontend into those locations and copies the storage manifest. This cached reference is evidence for packaging, not proof that our app has deployed successfully. Validate against the current Sites workflow before release. Keep the existing app; do not replace it with a new generated starter.
+Its Worker serves static files through `env.ASSETS.fetch(request)`. This artifact layout has been accepted by Sites for the reference deployment. Keep the existing app; do not replace it with a new generated starter.
+
+Run `npm run package:site` to build `drawing-worlds-site.tar.gz`. The archive includes `.openai/hosting.json` at its root and retains the `dist/server/index.js` and `dist/client` paths. Do not tar just the contents of `dist`: that loses the entrypoint path Sites expects.
 
 Current Sites tool contracts require a deployment tar containing build output and its manifest, associated with the exact source commit already pushed to the Site's configured source repository. The archive is not a source-code ZIP. Omitting an archive requests the platform's remote-build fallback. Follow the available workflow's source, save-version, and deployment steps; every deployment URL is a production URL.
 

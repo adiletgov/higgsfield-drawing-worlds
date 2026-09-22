@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "build": "tsc --noEmit && vite build && node scripts/build-worker.mjs",
+    "package:site": "npm run build && node scripts/package-site.mjs",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "preview": "wrangler dev --port 8787",

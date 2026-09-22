@@ -11,3 +11,7 @@ coverage/
 docs/superpowers/
 docs/server-review.md
 premium-audit.json
+design-lint.json
+docs/final-review.md
+.site-package/
+*.tar.gz

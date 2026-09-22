@@ -228,6 +228,37 @@ async function api(request: Request, env: Env, ctx: ExecutionContext) {
     });
   }
   if (parts[3] === "jobs") {
+    if (parts.length === 5 && request.method === "PATCH") {
+      requireOwner(request, env);
+      const data = await body(request);
+      if (data.resolveUncertain !== true)
+        throw new HttpError(400, "Confirm that you reviewed this upload.");
+      const row = await env.DB.prepare(
+        "SELECT * FROM jobs WHERE id=? AND world_id=?",
+      )
+        .bind(parts[4], world.id)
+        .first<JobRow>();
+      if (!row) throw new HttpError(404, "This upload could not be found.");
+      if (row.status !== "uncertain")
+        throw new HttpError(
+          409,
+          "This upload no longer needs review. Refresh its status.",
+        );
+      await env.DB.prepare(
+        "UPDATE jobs SET status='failed',message=?,updated_at=? WHERE id=? AND status='uncertain'",
+      )
+        .bind(
+          "The host reviewed this upload and closed tracking. You can choose another drawing. A new upload starts a new generation.",
+          new Date().toISOString(),
+          row.id,
+        )
+        .run();
+      await env.MEDIA.delete(row.input_key);
+      const updated = await env.DB.prepare("SELECT * FROM jobs WHERE id=?")
+        .bind(row.id)
+        .first<JobRow>();
+      return json(jobView(updated!));
+    }
     if (
       parts.length === 6 &&
       parts[4] === "request" &&

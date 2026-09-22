@@ -73,6 +73,56 @@ afterAll(async () => {
   await mf?.dispose();
 });
 describe("persistent worlds with scoped guests", () => {
+  it("lets only the owner release an uncertain upload after review without restarting generation", async () => {
+    const w = await world(),
+      db = await mf.getD1Database("DB"),
+      id = crypto.randomUUID();
+    await db
+      .prepare(
+        "INSERT INTO jobs(id,world_id,request_key,name,appearance,status,input_key,created_at,updated_at) VALUES(?,?,?,?,?,'uncertain',?,?,?)",
+      )
+      .bind(
+        id,
+        w.id,
+        crypto.randomUUID(),
+        "Needs review",
+        "handmade",
+        "unused",
+        "2020-01-01",
+        "2020-01-01",
+      )
+      .run();
+    expect(
+      (
+        await request(
+          `/api/worlds/${w.id}/jobs/${id}`,
+          "PATCH",
+          { resolveUncertain: true },
+          w.guestToken,
+          "https://drawing.example",
+        )
+      ).status,
+    ).toBe(403);
+    expect(
+      (
+        await request(`/api/worlds/${w.id}/jobs/${id}`, "PATCH", {
+          resolveUncertain: true,
+        })
+      ).status,
+    ).toBe(200);
+    const job = (await (
+      await request(`/api/worlds/${w.id}/jobs/${id}`)
+    ).json()) as any;
+    expect(job.status).toBe("failed");
+    expect(
+      (
+        await db
+          .prepare("SELECT provider_id FROM jobs WHERE id=?")
+          .bind(id)
+          .first<any>()
+      ).provider_id,
+    ).toBeNull();
+  });
   it("denies owner routes to guests and missing identity on public hosts", async () => {
     const w = await world();
     expect(

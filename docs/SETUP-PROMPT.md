@@ -6,7 +6,7 @@ The full Sites import and setup flow remains untested until a separate owner com
 
 ---
 
-Set up my own separate **Higgsfield Drawing Worlds** website using the attached repository, or the repository link I supplied, and host it with ChatGPT Sites. Use this application's existing implementation. I want an aquarium, dinosaur park, and space world; handmade or polished characters; phone uploads; and a persistent display where new drawings join earlier characters. I do not want to edit code myself.
+Set up my own separate **Higgsfield Drawing Worlds** website from https://github.com/adiletgov/higgsfield-drawing-worlds and host it with ChatGPT Sites. If I attached my personalized copy, use that instead. Use this application's existing implementation. I want an aquarium, dinosaur park, and space world; handmade or polished characters; phone uploads; and a persistent display where new drawings join earlier characters. I do not want to edit code myself.
 
 Read the README and deployment guide first. Check the current Sites runtime and build contract, make the minimum compatibility changes, and run the project's checks. Prepare a new personal Site with its own database and media storage. Never reuse another owner's project ID, credentials, worlds, or guest links. Use D1 binding `DB`, R2 binding `MEDIA`, and static asset binding `ASSETS`.
 
