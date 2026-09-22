@@ -1,15 +1,24 @@
 # Validation record
 
-Status on September 22, 2026: **party mode passes local checks; live party deployment and testing pending**. Creator pilot coverage remains incomplete.
+Status on September 22, 2026: **party mode is live and the two-portrait browser flow passed**. Creator pilot coverage remains incomplete.
+
+## Party mode: live checks
+
+- The existing reference app was updated to party mode. The original aquarium room remains available.
+- Two real Higgsfield portraits completed: Alex (handmade, 45.040 seconds) and Sam (polished, 30.885 seconds). Timings are observed application job creation-to-completion times, not a future processing-time guarantee. Inputs were original digital illustrations of fictitious people, not photos of drawings on paper.
+- The first portrait appeared anonymously; the second joined its queue. The host revealed Alex using the keyboard, the separate shared screen showed the answer, and Next drawing advanced to the anonymous second portrait. Refresh preserved round two and its hidden answer.
+- Sam was submitted through the guest invitation without a ChatGPT session. Guest snapshot reads returned `200`, while owner room-list and reveal requests returned `403`. Before reveal, both character names were `Mystery guest`; the processing-job response also concealed its answer.
+- Guest completion text did not echo the secret answer. Only the host view offered reveal and next controls.
+- These two additional successful generations have an estimated cost of $0.08. Across the original world and party tests there were six upload attempts: two earlier failures before provider generation and four successful outputs, estimated at $0.16 total. The actual billing ledger has not been checked.
 
 ## Party mode: local checks
 
 - Two demo portraits joined the queue. The host revealed the first answer, then advanced to the next drawing.
-- Refreshing the second round preserved it and kept its answer hidden until reveal.
+- Refreshing the second round and restarting the local server preserved it and kept its answer hidden until reveal.
 - A 390px browser preview had no horizontal overflow. This was not a physical-phone test.
 - 107 Vitest tests and 9 client checks passed, along with typecheck and formatting. The strict UI audit reported zero findings.
 
-These checks used local demo output. They do not verify real portrait generation or the deployed party experience.
+These local checks used demo output. The real-generation evidence is recorded separately above.
 
 ## Earlier world mode: verified history
 
@@ -36,4 +45,4 @@ There were four upload attempts: two failed at the initial nonbillable upload-UR
 
 ## Remaining pilot checks
 
-Party deployment and live party tests remain pending. A separate fresh owner's one-prompt setup, an actual photo of a paper drawing, and physical phone/TV use also remain unverified. Do not describe the creator setup as proven until those checks pass. The broader [release acceptance checklist](DEPLOYMENT.md#acceptance-checks-for-a-release) also applies.
+A separate fresh owner's one-prompt setup, an actual photo of a paper drawing, and physical phone/TV use remain unverified. Do not describe the creator setup as proven until those checks pass. The broader [release acceptance checklist](DEPLOYMENT.md#acceptance-checks-for-a-release) also applies.

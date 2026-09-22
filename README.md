@@ -23,9 +23,9 @@ Start with the [copyable ChatGPT setup prompt](docs/SETUP-PROMPT.md). Attach a d
 
 The intended host is ChatGPT Sites. You will need a Sites-enabled ChatGPT account, a Higgsfield API account, and API credentials entered in your own Site's private settings. See [deployment details](docs/DEPLOYMENT.md).
 
-**Release status:** party mode passes local checks; live party deployment and testing are pending. Two demo portraits queued correctly, the host revealed a name and advanced, and the second round stayed anonymous after refresh. A 390px browser preview had no horizontal overflow. Source checks passed: 107 Vitest tests, 9 client checks, typecheck, formatting, and a strict UI audit with zero findings.
+**Release status:** the [reference app](https://higgsfield-drawing-worlds.higgsfield-i-1075.chatgpt.site) is live with party mode. Two real portraits completed in about 45 and 31 seconds, including a guest submission without a ChatGPT account. Anonymous queueing, host reveal, next drawing, and round persistence after refresh worked. Guest requests could not reveal answers or access the host's room list. Source checks passed: 107 Vitest tests, 9 client checks, typecheck, formatting, and a strict UI audit with zero findings.
 
-The earlier aquarium prototype completed two real Higgsfield generations from original digital illustrations; that verifies the earlier world flow, not the new party flow. A separate owner's one-prompt setup, a photo of a paper drawing, and physical phone/TV use remain unverified. See the [validation record](docs/VALIDATION.md) before filming.
+A 390px browser preview had no horizontal overflow, and a local server restart preserved the round. The live test inputs were original digital illustrations. A separate owner's one-prompt setup, a photo of a paper drawing, and physical phone/TV use remain unverified. See the [validation record](docs/VALIDATION.md) before filming.
 
 ## Play at a party
 
