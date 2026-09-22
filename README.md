@@ -21,7 +21,7 @@ Start with the [copyable ChatGPT setup prompt](docs/SETUP-PROMPT.md). Attach a d
 
 The intended host is ChatGPT Sites. You will need a Sites-enabled ChatGPT account, a Higgsfield API account, and API credentials entered in your own Site's private settings. See [deployment details](docs/DEPLOYMENT.md).
 
-**Release status:** the starter is under validation. A fresh-owner Sites import, hosted authentication, and a paid end-to-end Higgsfield generation still need to be verified before this is described as a tested one-prompt setup. Follow the current validation record when one accompanies a release.
+**Release status:** under validation. This [public GitHub template](https://github.com/adiletgov/higgsfield-drawing-worlds) has a verified Sites deployment, owner sign-in, and saved worlds. Live generation is still blocked by a connection error at the initial upload-URL request. A separate owner's one-prompt setup and physical phone/TV use remain unverified. See the [validation record](docs/VALIDATION.md) before using it for a live demonstration.
 
 ## Use the world
 
@@ -63,7 +63,7 @@ The Vite development server is for frontend work. The Wrangler preview runs the 
 
 ## How it is built
 
-React and Vite provide the interface. A Cloudflare Worker-compatible server handles permissions and Higgsfield requests. D1 stores worlds and generation state; R2 stores artwork. The build emits `dist/server/index.js`, `dist/client`, and `dist/.openai/hosting.json`, following the Sites artifact layout found in an OpenAI starter. Hosted acceptance still needs verification.
+React and Vite provide the interface. A Cloudflare Worker-compatible server handles permissions and Higgsfield requests. D1 stores worlds and generation state; R2 stores artwork. The build emits `dist/server/index.js`, `dist/client`, and `dist/.openai/hosting.json`, following the Sites artifact layout found in an OpenAI starter. Sites accepted this layout for the reference deployment.
 
 Application bindings are `DB` for D1, `MEDIA` for R2, and `ASSETS` for static frontend files. This source can run in a compatible Worker environment, but production owner authentication is configured for the trusted identity supplied by Sites. Moving to another host requires a verified authentication adapter.
 

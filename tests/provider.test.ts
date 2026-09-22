@@ -110,7 +110,8 @@ describe("public Higgsfield provider", () => {
   );
 
   it("reports an API rejection by safe status without exposing the provider body", async () => {
-    vi.stubGlobal("fetch", async () => json({ detail: "fixture-secret" }, 401));
+    const fetch = vi.fn(async () => json({ detail: "fixture-secret" }, 401));
+    vi.stubGlobal("fetch", fetch);
     const result = await checkProviderConnection(env);
     expect(result).toMatchObject({
       ok: false,
@@ -118,6 +119,77 @@ describe("public Higgsfield provider", () => {
       httpStatus: 401,
     });
     expect(JSON.stringify(result)).not.toContain("fixture-secret");
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(result).not.toHaveProperty("probes");
+  });
+
+  it("probes only fixed credential-free routes after the authenticated fetch throws", async () => {
+    const requests: { url: string; init: RequestInit }[] = [];
+    vi.stubGlobal("fetch", async (url: string, init: RequestInit) => {
+      requests.push({ url: String(url), init });
+      if (requests.length === 1)
+        throw new Error("Network error fixture-secret");
+      return json(
+        { private: "fixture-secret" },
+        requests.length === 2 ? 401 : 200,
+      );
+    });
+    const result = await checkProviderConnection(env);
+    expect(
+      requests.map(({ url, init }) => [url, init.method, init.redirect]),
+    ).toEqual([
+      [`${api}/files/generate-upload-url`, "POST", "error"],
+      [`${api}/files/generate-upload-url`, "POST", "manual"],
+      ["https://docs.higgsfield.ai/docs/authentication", "GET", "manual"],
+    ]);
+    for (const request of requests.slice(1)) {
+      const headers = new Headers(request.init.headers);
+      expect(headers.has("authorization")).toBe(false);
+      expect(headers.has("cookie")).toBe(false);
+      expect(request.init.credentials).toBe("omit");
+    }
+    expect(result).toMatchObject({
+      ok: false,
+      classification: "network",
+      probes: {
+        anonymousPost: { classification: "http-response", httpStatus: 401 },
+        documentationGet: { classification: "http-response", httpStatus: 200 },
+      },
+    });
+    expect(result.message).toContain(
+      "Credential-free API check: HTTP 401. Documentation check: HTTP 200.",
+    );
+    expect(JSON.stringify(result)).not.toMatch(
+      /https:|fixture-secret|private|Authorization/,
+    );
+  });
+
+  it("reports a finite probe failure and an unfollowed redirect without its location", async () => {
+    let calls = 0;
+    vi.stubGlobal("fetch", async () => {
+      calls++;
+      if (calls === 1) throw new Error("Invalid header fixture-secret");
+      if (calls === 2) throw new Error("getaddrinfo ENOTFOUND fixture-secret");
+      return new Response("fixture-secret", {
+        status: 302,
+        headers: { Location: "https://private.example/fixture-secret" },
+      });
+    });
+    const result = await checkProviderConnection(env);
+    expect(calls).toBe(3);
+    expect(result).toMatchObject({
+      classification: "invalid-header",
+      probes: {
+        anonymousPost: { classification: "dns" },
+        documentationGet: { classification: "redirect", httpStatus: 302 },
+      },
+    });
+    expect(result.message).toContain(
+      "Credential-free API check: dns. Documentation check: HTTP 302.",
+    );
+    expect(JSON.stringify(result)).not.toMatch(
+      /https:|fixture-secret|ENOTFOUND|Location/,
+    );
   });
 
   it("reports upload schema and header validity independently", async () => {

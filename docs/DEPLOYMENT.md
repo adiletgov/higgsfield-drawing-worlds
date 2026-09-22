@@ -2,9 +2,11 @@
 
 ## Supported target and current status
 
-ChatGPT Sites is the intended managed host. The [official Sites guide](https://learn.chatgpt.com/docs/sites) documents compatible existing projects, D1 and R2 storage, Site settings for runtime secrets, and optional Sign in with ChatGPT. The reference deployment was accepted and published on September 22, 2026. Hosted sign-in, live generation and setup by a separate owner still need acceptance checks.
+ChatGPT Sites is the intended managed host. The [official Sites guide](https://learn.chatgpt.com/docs/sites) documents compatible existing projects, D1 and R2 storage, Site settings for runtime secrets, and optional Sign in with ChatGPT. The [public GitHub template](https://github.com/adiletgov/higgsfield-drawing-worlds) has a verified reference deployment, owner sign-in, world creation, and world persistence after redeployment as of September 22, 2026.
 
-No repository owner or hosted project identifier belongs in this public starter. Create a fresh Site for each person. Preserve and reuse that person's returned project ID for later updates.
+The starter remains under validation: live generation has not succeeded, and a separate owner's one-prompt setup and physical phone/TV use remain unverified. Two live submission attempts failed before a generation request ID was obtained; the second failed with a connection error at the initial nonbillable upload-URL request. No real output or charge has been confirmed. See the [validation record](VALIDATION.md) for verified coverage and remaining checks.
+
+No owner credentials, hosted project identifiers, or private guest/display links belong in this public starter. Create a fresh Site for each person. Preserve and reuse that person's returned project ID for later updates.
 
 ## Runtime settings
 

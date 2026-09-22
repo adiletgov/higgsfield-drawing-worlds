@@ -31,6 +31,15 @@ export interface ConnectionCheck {
   httpStatus?: number;
   schemaValid?: boolean;
   uploadHeadersValid?: boolean;
+  probes?: {
+    anonymousPost: ConnectionProbe;
+    documentationGet: ConnectionProbe;
+  };
+}
+
+interface ConnectionProbe {
+  classification: ConnectionClassification | "http-response";
+  httpStatus?: number;
 }
 
 const connectionMessages: Record<ConnectionClassification, string> = {
@@ -101,6 +110,47 @@ function connectionFailure(error: unknown): ConnectionClassification {
   return "network";
 }
 
+async function probeConnection(
+  route: "anonymous-post" | "documentation-get",
+): Promise<ConnectionProbe> {
+  try {
+    return await withDeadline(async (signal) => {
+      const response = await (route === "anonymous-post"
+        ? fetch(`${API}/files/generate-upload-url`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ content_type: "image/png" }),
+            credentials: "omit",
+            redirect: "manual",
+            signal,
+          })
+        : fetch("https://docs.higgsfield.ai/docs/authentication", {
+            method: "GET",
+            credentials: "omit",
+            redirect: "manual",
+            signal,
+          }));
+      // A response proves reachability; do not inspect its body or headers.
+      await response.body?.cancel().catch(() => undefined);
+      return {
+        classification:
+          response.status >= 300 && response.status < 400
+            ? "redirect"
+            : "http-response",
+        httpStatus: response.status,
+      };
+    });
+  } catch (error) {
+    return { classification: connectionFailure(error) };
+  }
+}
+
+function probeSummary(probe: ConnectionProbe): string {
+  return probe.httpStatus === undefined
+    ? probe.classification
+    : `HTTP ${probe.httpStatus}`;
+}
+
 /** Creates a temporary upload slot only: never uploads bytes or requests generation. */
 export async function checkProviderConnection(
   env: ProviderEnv,
@@ -121,8 +171,10 @@ export async function checkProviderConnection(
   } catch {
     return result("not-configured");
   }
+  let authenticatedFetchThrew = false;
+  let check: ConnectionCheck;
   try {
-    return await withDeadline(async (signal) => {
+    check = await withDeadline(async (signal) => {
       let response: Response;
       try {
         response = await fetch(`${API}/files/generate-upload-url`, {
@@ -133,6 +185,7 @@ export async function checkProviderConnection(
           signal,
         });
       } catch (error) {
+        authenticatedFetchThrew = true;
         return result(connectionFailure(error));
       }
       if (!response.ok) {
@@ -191,8 +244,16 @@ export async function checkProviderConnection(
       );
     });
   } catch (error) {
-    return result(connectionFailure(error));
+    check = result(connectionFailure(error));
   }
+  if (!authenticatedFetchThrew) return check;
+  const anonymousPost = await probeConnection("anonymous-post");
+  const documentationGet = await probeConnection("documentation-get");
+  return {
+    ...check,
+    probes: { anonymousPost, documentationGet },
+    message: `${check.message} Credential-free API check: ${probeSummary(anonymousPost)}. Documentation check: ${probeSummary(documentationGet)}.`,
+  };
 }
 
 /** Safe messages only: never attach a provider body, URL, credentials or cause. */

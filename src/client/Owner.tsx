@@ -30,6 +30,14 @@ type Modal =
   | Character
   | { kind: "resolve"; job: Job }
   | null;
+type ConnectionCheck = {
+  ok: boolean;
+  classification: string;
+  message: string;
+  httpStatus?: number;
+  schemaValid?: boolean;
+  uploadHeadersValid?: boolean;
+};
 export function Owner({ session }: { session: Session }) {
   const list = useResource<{ worlds: World[] }>("/api/worlds");
   const [selected, setSelected] = useState("");
@@ -45,6 +53,10 @@ export function Owner({ session }: { session: Session }) {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [paused, setPaused] = useState(false);
+  const [checkingConnection, setCheckingConnection] = useState(false);
+  const [connectionCheck, setConnectionCheck] = useState<ConnectionCheck>();
+  const [connectionError, setConnectionError] = useState("");
+  const connectionLock = useRef(false);
   usePageTitle(world ? `${world.name} · Studio` : "Your studio");
   const current = snapshot.data?.world || world;
   const join = current?.guestToken
@@ -53,6 +65,25 @@ export function Owner({ session }: { session: Session }) {
   const display = current?.displayToken
     ? accessLink(location.origin, "world", current.id, current.displayToken)
     : "";
+  async function checkConnection() {
+    if (connectionLock.current) return;
+    connectionLock.current = true;
+    setCheckingConnection(true);
+    setConnectionCheck(undefined);
+    setConnectionError("");
+    try {
+      setConnectionCheck(await api<ConnectionCheck>("/api/connection-check"));
+    } catch (e) {
+      setConnectionError(
+        e instanceof Error
+          ? e.message
+          : "The connection check could not finish. Please try again.",
+      );
+    } finally {
+      connectionLock.current = false;
+      setCheckingConnection(false);
+    }
+  }
   async function patch(values: Partial<World> & { rotateGuest?: true }) {
     if (!current || busy) return;
     setBusy(true);
@@ -513,6 +544,33 @@ export function Owner({ session }: { session: Session }) {
             </div>
           </section>
         )}
+        <div className="world-controls">
+          <Button
+            busy={checkingConnection}
+            onClick={() => void checkConnection()}
+          >
+            Check API connection
+          </Button>
+          <p role={checkingConnection ? "status" : undefined}>
+            {checkingConnection
+              ? "Checking API access… No character will be generated."
+              : "Checks API access without generating a character."}
+          </p>
+        </div>
+        {connectionCheck && (
+          <Notice error={!connectionCheck.ok}>
+            <span>{connectionCheck.message}</span>
+            {!connectionCheck.ok && (
+              <span>
+                {connectionCheck.classification}
+                {connectionCheck.httpStatus !== undefined
+                  ? ` · HTTP ${connectionCheck.httpStatus}`
+                  : ""}
+              </span>
+            )}
+          </Notice>
+        )}
+        {connectionError && <Notice error>{connectionError}</Notice>}
       </main>
       <footer className="site-footer">
         <span>A little imagination goes a long way.</span>
