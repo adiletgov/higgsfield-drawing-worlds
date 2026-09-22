@@ -250,6 +250,7 @@ export function Owner({ session }: { session: Session }) {
                 {display && (
                   <a
                     className="button button-neutral display-open"
+                    aria-label="Open display"
                     href={display}
                     target="_blank"
                     rel="noreferrer"
